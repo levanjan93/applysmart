@@ -99,6 +99,35 @@ class SourceMapTests(unittest.TestCase):
         self.assertEqual(sources["responsibilities.0"]["status"], "quoted")
 
 
+class RoleContextTests(unittest.TestCase):
+    PASTE = (
+        "About the team\n"
+        "We partner with Product, Engineering, and Design to shape roadmaps.\n"
+        "Our team is remote-first.\n"
+        "As a Data Scientist on the Consumer team, you'll improve the customer experience across "
+        "consumer products, including spot and advanced trading, yield, Coinbase One, and new "
+        "launches such as prediction markets."
+    )
+
+    def test_products_partners_and_shortened_about_role_are_located(self):
+        # about_role drops the middle sentence, so it is matched sentence by sentence.
+        arguments = {
+            "about_role": "We partner with Product, Engineering, and Design to shape roadmaps. "
+                          "As a Data Scientist on the Consumer team, you'll improve the customer experience "
+                          "across consumer products, including spot and advanced trading, yield, Coinbase One, "
+                          "and new launches such as prediction markets.",
+            "products": ["Coinbase One", "prediction markets", "Coinbase Card"],
+            "partner_teams": ["Product", "Design"],
+        }
+        sources = source_map(self.PASTE, arguments, [])["sources"]
+        self.assertEqual(sources["about_role"]["status"], "found")
+        self.assertEqual(len(sources["about_role"]["spans"]), 2)
+        self.assertEqual(sources["products.0"]["status"], "found")
+        self.assertEqual(sources["products.1"]["status"], "found")
+        self.assertEqual(sources["products.2"]["status"], "missing")
+        self.assertEqual(sources["partner_teams.1"]["status"], "found")
+
+
 class PostedDateTests(unittest.TestCase):
     today = date(2026, 10, 10)
 
@@ -142,8 +171,19 @@ class PostingSaveTests(unittest.TestCase):
         )
         posting = result["posting"]
         self.assertEqual(posting["date_posted_text"], "6 days ago")
+        self.assertEqual((posting["about_role"], posting["products"], posting["partner_teams"]), (None, [], []))
         self.assertTrue(posting["date_posted_is_estimate"])
         self.assertNotIn("source_quotes", posting)
+
+    def test_role_context_is_saved(self):
+        posting = tools.add_posting_action(
+            source="linkedin", title="Senior Data Analyst", company="DBS Bank", location="Singapore",
+            requirements=[], responsibilities=[], about_role="You will build dashboards for the retail team.",
+            products=["retail banking"], partner_teams=["Product"],
+        )["posting"]
+        self.assertEqual(self.store.read_posting(posting["id"])["products"], ["retail banking"])
+        self.assertEqual(posting["about_role"], "You will build dashboards for the retail team.")
+        self.assertEqual(posting["partner_teams"], ["Product"])
 
     def test_approval_context_carries_lines_sources_and_date(self):
         with mock.patch("webapp.duplicate_candidates", return_value=[]):

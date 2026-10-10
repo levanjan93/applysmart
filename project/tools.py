@@ -33,7 +33,7 @@ class SourceQuote(TypedDict):
 
     field: Literal[
         "title", "company", "department", "location", "employment_type", "date_posted",
-        "salary", "requirement", "responsibility",
+        "salary", "about_role", "requirement", "responsibility", "product", "partner_team",
     ]
     value: str
     quote: str
@@ -399,6 +399,9 @@ def add_posting_action(
     location: str,
     requirements: list[RequirementFields | str],
     responsibilities: list[str],
+    about_role: str | None = None,
+    products: list[str] | None = None,
+    partner_teams: list[str] | None = None,
     department: str | None = None,
     employment_type: str | None = None,
     source_url: str | None = None,
@@ -419,6 +422,14 @@ def add_posting_action(
     verbatim beside the record. Python generates the JOB ID, date added, and REQ IDs.
     Leave ``related_postings`` empty; the user links duplicates on the approval card.
     Pass ``date_posted`` as written on the page ("6 days ago"); code converts it.
+
+    Also keep what the user needs to prepare for an interview, which is neither a
+    requirement nor a responsibility: ``about_role`` is the team, its mission, and
+    what the role is for, in the page's own words (shorten only by cutting
+    sentences); ``products`` lists each product, product line, market, or business
+    area the role works on, one per item, as named on the page (for example
+    "Coinbase One", "prediction markets"); ``partner_teams`` lists the teams the
+    role works with ("Product", "Engineering"). Leave them empty when absent.
 
     ``source_quotes``: one entry per extracted field, requirement, and
     responsibility. ``value`` is the item exactly as you pass it here; ``quote``
@@ -449,6 +460,9 @@ def add_posting_action(
         "date_posted_text": date_text,
         "requirements": normalize_requirements(requirements),
         "responsibilities": responsibilities,
+        "about_role": about_role,
+        "products": products or [],
+        "partner_teams": partner_teams or [],
         "salary": salary,
         "notes": notes,
         "related_postings": related_postings or [],

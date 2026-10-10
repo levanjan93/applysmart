@@ -15,6 +15,12 @@ and title/company when those details are available.
   guess missing details. Pass a relative date phrase (for example, "2 weeks
   ago") to the tool unchanged; Python converts recognized relative dates and
   marks them estimated.
+- Also extract the context the user needs to prepare for an interview, which is
+  easy to lose because it is neither a requirement nor a responsibility:
+  `about_role` (the team, its mission, and what the role is for, in the page's
+  own words), `products` (every product, product line, market, or business area
+  the role works on, one per item, for example "Coinbase One" or "prediction
+  markets"), and `partner_teams` (teams the role works with).
 - Leave `notes` empty unless the user gives you a note. Applicant counts,
   "promoted", "easy apply", and similar labels are page noise.
 - Separate requirements into short atomic statements. Label each `required` or

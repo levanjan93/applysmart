@@ -32,6 +32,7 @@ _POSTING_INPUTS = {
     "title", "company", "department", "location", "employment_type", "source",
     "source_url", "date_posted", "date_posted_is_estimate", "date_posted_text", "requirements",
     "responsibilities", "salary", "status", "notes", "related_postings",
+    "about_role", "products", "partner_teams",
 }
 _EXPERIENCE_INPUTS = {
     "source", "on_resume", "category", "text", "skills", "organization", "dates", "parent_id",
@@ -724,6 +725,10 @@ def _build_posting(fields: dict) -> dict:
         "date_posted_text": _optional_text(fields.get("date_posted_text"), "date_posted_text"),
         "requirements": _normalize_requirements(fields.get("requirements", [])),
         "responsibilities": _string_list(fields.get("responsibilities", []), "responsibilities"),
+        # Interview preparation context: the team and mission, products, and partner teams.
+        "about_role": _optional_text(fields.get("about_role"), "about_role"),
+        "products": _string_list(fields.get("products") or [], "products"),
+        "partner_teams": _string_list(fields.get("partner_teams") or [], "partner_teams"),
         "salary": _optional_text(fields.get("salary"), "salary"),
         "status": status,
         "notes": _optional_text(fields.get("notes"), "notes"),

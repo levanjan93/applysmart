@@ -328,6 +328,22 @@ function postingView(args, context) {
   (args.responsibilities || []).forEach((item, index) =>
     responsibilities.append(checkable(`responsibilities.${index}`, el("li", {textContent: item}))));
 
+  // Interview preparation context: what the team does and what to research.
+  const chipList = (key, items) => el("div", {className: "chips"}, ...items.map((item, index) =>
+    checkable(`${key}.${index}`, el("span", {className: "chip", textContent: item}))));
+  const products = args.products || [];
+  const partners = args.partner_teams || [];
+  const roleContext = [
+    el("h3", {textContent: "About the role"}),
+    args.about_role
+      ? checkable("about_role", el("p", {className: "about-role", textContent: args.about_role}))
+      : el("p", {className: "muted", textContent: "—"}),
+    el("h3", {textContent: `Products and areas to research (${products.length})`}),
+    products.length ? chipList("products", products) : el("p", {className: "muted", textContent: "None named."}),
+    el("h3", {textContent: "Works with"}),
+    partners.length ? chipList("partner_teams", partners) : el("p", {className: "muted", textContent: "Not stated."}),
+  ];
+
   const counts = {quoted: 0, found: 0, approximate: 0, missing: 0};
   for (const source of Object.values(sources)) counts[source.status] += 1;
   const flagged = counts.approximate + counts.missing;
@@ -364,6 +380,7 @@ function postingView(args, context) {
   return [duplicatesView(context.duplicates, context, context.onLink), summary, el("div", {className: "evidence-columns posting-columns"},
     el("section", {},
       el("h3", {textContent: "Structured record to save"}), fields,
+      ...roleContext,
       el("h3", {textContent: `Requirements (${(args.requirements || []).length})`}), requirements,
       el("h3", {textContent: "Responsibilities"}), responsibilities),
     right)];
@@ -531,6 +548,9 @@ function buildEditor(toolName, args) {
                type: selectInput("Type", req.type, ["required", "preferred"])}),
       () => ({text: "", type: "required"}), "Add requirement");
     parts.responsibilities = linesInput("Responsibilities", args.responsibilities);
+    parts.about_role = textInput("About the role (team, mission, what the role is for)", args.about_role, {multiline: true});
+    parts.products = linesInput("Products and areas to research", args.products);
+    parts.partner_teams = linesInput("Works with (teams)", args.partner_teams);
   } else if (toolName === "propose_analysis_instructions") {
     parts.new_text = (() => {
       const control = el("textarea", {rows: 16, className: "draft-editor"});

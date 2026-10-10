@@ -112,7 +112,7 @@ A second model, with separate instructions and ideally a different model family,
 | Action | Policy |
 |---|---|
 | Reading, searching, analyzing | Automatic |
-| Saving a posting | Card with the structured record, numbered requirements, your formatted pasted text with click-to-highlight sources and ⚠ flags, and any duplicate candidates |
+| Saving a posting | Card with the structured record, interview-prep context (about the role, products to research, partner teams), numbered requirements, your formatted pasted text with click-to-highlight sources and ⚠ flags, and any duplicate candidates |
 | Saving resume entries or experience | Card with every line, editable before saving |
 | Updating or deleting experience | Card with before/after, or with the entry to delete |
 | Changing application status | Automatic when you name the job; the assistant asks if it is ambiguous |

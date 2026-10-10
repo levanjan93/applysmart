@@ -14,6 +14,11 @@ import re
 
 SCALAR_FIELDS = (
     "title", "company", "department", "location", "employment_type", "date_posted", "salary",
+    "about_role",
+)
+# Card key prefix and source-quote field name for each list of extracted items.
+LIST_FIELDS = (
+    ("responsibilities", "responsibility"), ("products", "product"), ("partner_teams", "partner_team"),
 )
 
 _WORD = re.compile(r"[a-z0-9]+", re.IGNORECASE)
@@ -30,6 +35,7 @@ _ELLIPSIS = re.compile(r"\s*(?:\.\.\.|…)\s*")
 _EDGE_PUNCTUATION = " \t\"'“”‘’.,;:•-–—*"
 _FOLD = str.maketrans({"’": "'", "‘": "'", "“": '"', "”": '"', "–": "-", "—": "-", " ": " "})
 _APPROXIMATE_SHARE = 0.6
+_SENTENCE_END = re.compile(r"(?<=[.!?])\s+")
 
 
 def _folded(text: str) -> tuple[str, list[int]]:
@@ -153,6 +159,25 @@ def _best_line(raw_text: str, lines: list[dict], value: str) -> list[int] | None
     return [best["start"], best["end"]]
 
 
+def _sentence_spans(raw_text: str, value: str) -> tuple[list[list[int]] | None, str]:
+    """Match a multi-sentence value (such as about_role) one sentence at a time.
+
+    Every sentence found verbatim counts as ``found``; only some, ``approximate``.
+    """
+    sentences = [part for part in _SENTENCE_END.split(value.strip()) if part.strip()]
+    if len(sentences) < 2:
+        return None, "missing"
+    spans, matched = [], 0
+    for sentence in sentences:
+        located = locate_quote(raw_text, sentence)
+        if located:
+            spans.extend(located)
+            matched += 1
+    if not matched:
+        return None, "missing"
+    return spans, "found" if matched == len(sentences) else "approximate"
+
+
 def _items(arguments: dict, requirements: list[dict]) -> list[tuple[str, str, str]]:
     """(key, field, value) for every item the card shows as checkable."""
     items = []
@@ -162,9 +187,10 @@ def _items(arguments: dict, requirements: list[dict]) -> list[tuple[str, str, st
             items.append((field, field, value))
     for index, requirement in enumerate(requirements):
         items.append((f"requirements.{index}", "requirement", requirement.get("text") or ""))
-    for index, text in enumerate(arguments.get("responsibilities") or []):
-        if isinstance(text, str):
-            items.append((f"responsibilities.{index}", "responsibility", text))
+    for key, field in LIST_FIELDS:
+        for index, text in enumerate(arguments.get(key) or []):
+            if isinstance(text, str):
+                items.append((f"{key}.{index}", field, text))
     return items
 
 
@@ -203,6 +229,8 @@ def source_map(raw_text: str, arguments: dict, requirements: list[dict]) -> dict
         status = "quoted"
         if spans is None:
             spans, status = locate_quote(raw_text, value), "found"
+        if spans is None:
+            spans, status = _sentence_spans(raw_text, value)
         if spans is None:
             line = _best_line(raw_text, lines, value)
             spans, status = ([line], "approximate") if line else ([], "missing")
