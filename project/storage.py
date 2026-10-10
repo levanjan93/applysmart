@@ -30,7 +30,7 @@ _REPLACE_DELAY = 0.05
 
 _POSTING_INPUTS = {
     "title", "company", "department", "location", "employment_type", "source",
-    "source_url", "date_posted", "date_posted_is_estimate", "requirements",
+    "source_url", "date_posted", "date_posted_is_estimate", "date_posted_text", "requirements",
     "responsibilities", "salary", "status", "notes", "related_postings",
 }
 _EXPERIENCE_INPUTS = {
@@ -720,6 +720,8 @@ def _build_posting(fields: dict) -> dict:
         "date_added": None,
         "date_posted": posted,
         "date_posted_is_estimate": estimate,
+        # The page's own wording, such as "6 days ago", when date_posted was computed from it.
+        "date_posted_text": _optional_text(fields.get("date_posted_text"), "date_posted_text"),
         "requirements": _normalize_requirements(fields.get("requirements", [])),
         "responsibilities": _string_list(fields.get("responsibilities", []), "responsibilities"),
         "salary": _optional_text(fields.get("salary"), "salary"),

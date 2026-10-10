@@ -81,11 +81,13 @@ The agent has no tool that accepts a filesystem path. A selected resume stays in
 
 | Idea | Course week | What you see |
 |---|---|---|
-| **A. Verifying AI output** | Week 2 | Every fit claim cites REQ and EXP IDs that code has checked; an independent checker rates each claim; the evidence panel puts flagged claims first and shows each requirement beside its evidence. |
+| **A. Verifying AI output** | Week 2 | Every field of a posting to save links to its source in your pasted text, with unsupported items flagged. Every fit claim cites REQ and EXP IDs that code has checked; an independent checker rates each claim; the evidence panel puts flagged claims first and shows each requirement beside its evidence. |
 | **B. Agent memory with user approval** | Week 4 | New experience, resume imports, edits, deletions, and changes to your analysis style are proposed on cards and saved only after you approve; your wording is never upgraded. |
 | **C. Human oversight at the right moment** | Week 4 | Cards appear only for consequential saves, show the exact content, and support Approve, Edit, and Reject; possible duplicates are labelled for you to decide; clear status updates need no card. |
 
 ### A. Verifying AI output
+
+Verification starts when a posting is saved. For every field, requirement, and responsibility, the assistant gives a short exact quote from your pasted text, and code checks that the quote really is there. On the approval card, clicking an item highlights its source in your pasted text, and clicking highlighted text selects the item. An item with no source is marked ⚠, and one with only a close match is marked ≈. Lines that no item uses are dimmed, so you can also spot omissions. Your pasted text is shown with bold headers and bullets for easier reading, but only the display changes: **Show original** shows it exactly as saved. A relative date such as "6 days ago" is converted by code into a date, marked as an estimate, and the page's own wording is saved beside it.
 
 The analyst model rates each requirement as a strong match, partial match, or gap, and must cite the REQ and EXP IDs it relies on. Code then does the checking that a model cannot be trusted with:
 
@@ -110,7 +112,7 @@ A second model, with separate instructions and ideally a different model family,
 | Action | Policy |
 |---|---|
 | Reading, searching, analyzing | Automatic |
-| Saving a posting | Card with the structured record, numbered requirements, your pasted text, and any duplicate candidates |
+| Saving a posting | Card with the structured record, numbered requirements, your formatted pasted text with click-to-highlight sources and ⚠ flags, and any duplicate candidates |
 | Saving resume entries or experience | Card with every line, editable before saving |
 | Updating or deleting experience | Card with before/after, or with the entry to delete |
 | Changing application status | Automatic when you name the job; the assistant asks if it is ambiguous |
@@ -156,7 +158,7 @@ python -c "import agent, webapp"
 - `agent.py` builds the assistant and manages terminal startup.
 - `runtime.py` loads `.env`, builds the OpenRouter models, runs the SDK, applies approval decisions, and logs them.
 - `tools.py` contains the Agents SDK tools.
-- `llm.py` runs structured model calls made by code. `resume.py` parses resumes into nested drafts. `analysis.py` runs fit analysis, citation checks, and claim checking. `duplicates.py` labels duplicate candidates.
+- `llm.py` runs structured model calls made by code. `resume.py` parses resumes into nested drafts. `analysis.py` runs fit analysis, citation checks, and claim checking. `posting_evidence.py` checks posting source quotes and splits pasted text into display lines. `duplicates.py` labels duplicate candidates.
 - `storage.py` manages local records, IDs, the tracking log, and the interaction log.
 - `webapp.py` and `gui/` provide the browser interface: chat and approval cards (`chat.js`), the evidence panel (`analysis.js`), and the Postings and Experience views (`views.js`).
 - `uploads.py` holds browser-selected resume files in memory and extracts their text.

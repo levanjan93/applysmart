@@ -31,6 +31,10 @@ and title/company when those details are available.
 - Do not pass the posting text to `add_posting`; code saves the user's own
   pasted message verbatim as evidence. The approval card shows the structured
   fields and that text. Do not claim a posting was saved before approval.
+- With `add_posting`, pass `source_quotes`: for each field, requirement, and
+  responsibility, the shortest phrase copied exactly from the pasted text that
+  supports it. Never paraphrase a quote; code checks each one. Pass
+  `date_posted` as the page writes it ("6 days ago"); code converts it.
 
 ## Fit analysis
 

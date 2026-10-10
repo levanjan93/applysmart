@@ -13,10 +13,11 @@ from urllib.parse import parse_qs, unquote, urlparse
 
 from analysis import evidence_view
 from duplicates import judge_candidates_blocking
+from posting_evidence import source_map
 from storage import StorageError, default_store
 from tools import (
     application_dates, approval_details, approval_tool_name, duplicate_candidates, find_pasted_text,
-    normalize_requirements,
+    normalize_requirements, posted_date_view,
 )
 from uploads import MAX_RESUME_BYTES, resume_uploads
 
@@ -33,6 +34,10 @@ def approval_context(tool_name: str, arguments: dict) -> dict:
             context["raw_text"] = find_pasted_text(
                 arguments.get("title") or "", arguments.get("company") or "",
             )
+            context["date_posted"] = posted_date_view(arguments.get("date_posted"))
+            if context["raw_text"]:
+                # Display lines and, per extracted item, its verified source span.
+                context["evidence"] = source_map(context["raw_text"], arguments, context["requirements"])
             context["duplicates"] = duplicate_candidates(
                 arguments.get("company") or "", arguments.get("title") or "",
             )

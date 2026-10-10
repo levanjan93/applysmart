@@ -204,26 +204,173 @@ function lineDiff(before, after) {
     el("div", {className: `diff-line diff-${kind}`, textContent: `${kind === "add" ? "+ " : kind === "del" ? "− " : "  "}${text}`})));
 }
 
-function proposalView(toolName, args, context) {
-  if (toolName === "add_posting") {
-    const requirements = el("ol", {className: "req-list"});
-    (args.requirements || []).forEach((req, index) => requirements.append(el("li", {},
-      el("span", {className: "req-id", textContent: `REQ-${index + 1}`}),
-      el("span", {className: `tag ${req.type === "preferred" ? "tag-soft" : ""}`, textContent: req.type || "required"}),
-      el("span", {textContent: req.text}))));
-    const responsibilities = el("ul");
-    (args.responsibilities || []).forEach(item => responsibilities.append(el("li", {textContent: item})));
-    return [duplicatesView(context.duplicates, context, context.onLink), el("div", {className: "evidence-columns"},
-      el("section", {},
-        el("h3", {textContent: "Structured record to save"}), fieldTable(args, POSTING_FIELDS),
-        el("h3", {textContent: `Requirements (${(args.requirements || []).length})`}), requirements,
-        el("h3", {textContent: "Responsibilities"}), responsibilities),
-      el("section", {},
-        el("h3", {textContent: "Your pasted text, saved verbatim as evidence"}),
-        context.raw_text
-          ? el("pre", {textContent: context.raw_text})
-          : el("p", {className: "note-warn", textContent: "Your pasted text was not found in this conversation, so this save will fail. Paste the posting again."})))];
+// ----- Posting card: each extracted item linked to its source -----------------
+
+const SOURCE_MARKS = {
+  approximate: ["≈", "source-approx", "No exact quote. The highlighted line shares most of its words; check it."],
+  missing: ["⚠", "source-missing", "No source found in your pasted text. Check this item yourself."],
+};
+
+function dateText(view) {
+  if (!view) return null;
+  if (!view.recognized) {
+    return view.original
+      ? `${view.date} (today: “${view.original}” could not be read as a date)`
+      : `${view.date} (not on the page; today's date is used)`;
   }
+  if (view.original) return `${view.date} (estimate: “${view.original}”, counted back from ${view.counted_from})`;
+  return view.is_estimate ? `${view.date} (estimate)` : view.date;
+}
+
+// Split each display line at every source boundary, so a span can belong to
+// several items. The text is shown exactly as pasted; only styling changes.
+function formattedPosting(raw, lines, sources, onPick) {
+  const cuts = [];
+  for (const [key, source] of Object.entries(sources)) {
+    for (const [start, end] of source.spans) cuts.push({start, end, key});
+  }
+  const box = el("div", {className: "posting-text"});
+  let previousBlank = false;
+  for (const line of lines) {
+    if (line.kind === "blank") {
+      if (!previousBlank) box.append(el("div", {className: "pt-gap"}));
+      previousBlank = true;
+      continue;
+    }
+    previousBlank = false;
+    const points = new Set([line.start, line.end]);
+    if (line.marker_end) points.add(line.marker_end);
+    for (const cut of cuts) {
+      if (cut.end <= line.start || cut.start >= line.end) continue;
+      points.add(Math.max(cut.start, line.start));
+      points.add(Math.min(cut.end, line.end));
+    }
+    const sorted = [...points].sort((a, b) => a - b);
+    const row = el("div", {className: `pt-line pt-${line.kind}`});
+    let used = false;
+    for (let i = 0; i < sorted.length - 1; i++) {
+      const [start, end] = [sorted[i], sorted[i + 1]];
+      if (start === end) continue;
+      const keys = cuts.filter(cut => cut.start <= start && cut.end >= end).map(cut => cut.key);
+      const isMarker = line.marker_end && end <= line.marker_end;
+      const span = el("span", {textContent: raw.slice(start, end), className: isMarker ? "pt-marker" : ""});
+      if (keys.length && !isMarker) {
+        used = true;
+        span.classList.add("pt-source");
+        span.dataset.keys = keys.join(" ");
+        span.title = "Click to show the extracted item";
+        span.addEventListener("click", () => onPick(keys[0], false));
+      }
+      row.append(span);
+    }
+    // Lines no extracted item points to are dimmed, so omissions stand out.
+    if (!used && line.kind !== "header") row.classList.add("pt-unused");
+    box.append(row);
+  }
+  return box;
+}
+
+function postingView(args, context) {
+  const evidence = context.evidence || {lines: [], sources: {}};
+  const sources = evidence.sources;
+  let textBox = null;
+
+  const pick = (key, scroll = true) => {
+    const card = approval;
+    card.querySelectorAll(".src-item.active, .pt-source.active").forEach(node => node.classList.remove("active"));
+    card.querySelectorAll(`.src-item[data-key="${key}"]`).forEach(node => node.classList.add("active"));
+    const spans = [...card.querySelectorAll(".pt-source")].filter(span => span.dataset.keys.split(" ").includes(key));
+    spans.forEach(span => span.classList.add("active"));
+    if (scroll && spans.length && textBox) {
+      // Scroll only the text box, not the page.
+      // .posting-scroll is positioned, so offsetTop is measured from its top.
+      const top = spans[0].offsetTop - textBox.clientHeight / 3;
+      textBox.scrollTo({top: Math.max(0, top), behavior: "smooth"});
+    } else if (!scroll) {
+      card.querySelector(`.src-item[data-key="${key}"]`)?.scrollIntoView({block: "nearest", behavior: "smooth"});
+    }
+  };
+
+  const checkable = (key, node) => {
+    const source = sources[key];
+    if (!source) return node;
+    node.classList.add("src-item");
+    node.dataset.key = key;
+    node.tabIndex = 0;
+    node.addEventListener("click", () => pick(key));
+    node.addEventListener("keydown", event => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); pick(key); } });
+    const mark = SOURCE_MARKS[source.status];
+    const notes = [];
+    if (mark) notes.push(mark[2]);
+    if (source.quote_not_found) notes.push(`The assistant quoted “${source.quote}”, but that text is not in your paste.`);
+    if (mark || source.quote_not_found) {
+      const [symbol, className] = mark || ["⚠", "source-missing"];
+      node.append(el("span", {className: `source-mark ${className}`, textContent: symbol, title: notes.join(" ")}));
+      node.title = notes.join(" ");
+    }
+    return node;
+  };
+
+  const fields = el("dl", {className: "fields"});
+  for (const [key, label] of POSTING_FIELDS) {
+    if (key === "date_posted_is_estimate") continue;
+    if (!(key in args) && key !== "date_posted") continue;
+    const value = key === "date_posted" ? dateText(context.date_posted) || shown(args[key]) : shown(args[key]);
+    fields.append(el("dt", {textContent: label}),
+      checkable(key, el("dd", {textContent: value, className: value === "—" ? "muted" : ""})));
+  }
+  const requirements = el("ol", {className: "req-list"});
+  (args.requirements || []).forEach((req, index) => requirements.append(checkable(`requirements.${index}`, el("li", {},
+    el("span", {className: "req-id", textContent: `REQ-${index + 1}`}),
+    el("span", {className: `tag ${req.type === "preferred" ? "tag-soft" : ""}`, textContent: req.type || "required"}),
+    el("span", {textContent: req.text})))));
+  const responsibilities = el("ul", {className: "resp-list"});
+  (args.responsibilities || []).forEach((item, index) =>
+    responsibilities.append(checkable(`responsibilities.${index}`, el("li", {textContent: item}))));
+
+  const counts = {quoted: 0, found: 0, approximate: 0, missing: 0};
+  for (const source of Object.values(sources)) counts[source.status] += 1;
+  const flagged = counts.approximate + counts.missing;
+  const summary = Object.keys(sources).length
+    ? el("p", {className: flagged ? "note-warn source-summary" : "note-ok source-summary", textContent:
+        `Click any item to highlight where it came from in your text. ` +
+        `${counts.quoted + counts.found} of ${Object.keys(sources).length} items were found word for word` +
+        (flagged ? `; ${counts.missing} have no source (⚠) and ${counts.approximate} only a close match (≈) — check those first.` : ".") +
+        " Dimmed lines were not used by any item: check nothing important was missed."})
+    : null;
+
+  let right;
+  if (context.raw_text) {
+    const formatted = formattedPosting(context.raw_text, evidence.lines, sources, pick);
+    const original = el("pre", {className: "posting-original", textContent: context.raw_text, hidden: true});
+    const toggle = el("button", {type: "button", className: "secondary small", textContent: "Show original"});
+    toggle.addEventListener("click", () => {
+      const showOriginal = original.hidden;
+      original.hidden = !showOriginal;
+      formatted.hidden = showOriginal;
+      toggle.textContent = showOriginal ? "Show formatted" : "Show original";
+    });
+    textBox = el("div", {className: "posting-scroll"}, formatted, original);
+    right = el("section", {className: "posting-source"},
+      el("div", {className: "posting-source-head"},
+        el("h3", {textContent: "Your pasted text, saved verbatim as evidence"}), toggle),
+      el("p", {className: "muted small-note", textContent: "Headers and bullets are display only; the saved text is unchanged."}),
+      textBox);
+  } else {
+    right = el("section", {}, el("p", {className: "note-warn", textContent:
+      "Your pasted text was not found in this conversation, so this save will fail. Paste the posting again."}));
+  }
+
+  return [duplicatesView(context.duplicates, context, context.onLink), summary, el("div", {className: "evidence-columns posting-columns"},
+    el("section", {},
+      el("h3", {textContent: "Structured record to save"}), fields,
+      el("h3", {textContent: `Requirements (${(args.requirements || []).length})`}), requirements,
+      el("h3", {textContent: "Responsibilities"}), responsibilities),
+    right)];
+}
+
+function proposalView(toolName, args, context) {
+  if (toolName === "add_posting") return postingView(args, context);
   if (toolName === "import_resume") return resumeDraftView(args.draft, context.filename);
   if (toolName === "update_experience") {
     return [el("div", {className: "evidence-columns"},
@@ -376,6 +523,7 @@ function buildEditor(toolName, args) {
   if (toolName === "add_posting") {
     for (const [key, label] of POSTING_FIELDS) {
       parts[key] = key === "date_posted_is_estimate" ? checkInput(label, args[key])
+        : key === "date_posted" ? textInput("Date posted (as on the page, e.g. “6 days ago”, or YYYY-MM-DD)", args[key])
         : textInput(label, args[key], {multiline: key === "notes"});
     }
     parts.requirements = rowList("Requirements", args.requirements,

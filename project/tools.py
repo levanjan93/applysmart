@@ -28,6 +28,17 @@ class RequirementFields(TypedDict):
     type: Literal["required", "preferred"]
 
 
+class SourceQuote(TypedDict):
+    """Where one extracted item came from: a short exact quote from the pasted text."""
+
+    field: Literal[
+        "title", "company", "department", "location", "employment_type", "date_posted",
+        "salary", "requirement", "responsibility",
+    ]
+    value: str
+    quote: str
+
+
 SAVE_FAILED = "SAVE FAILED"
 
 
@@ -39,24 +50,33 @@ def save_failed(_ctx, error: Exception) -> str:
     )
 
 
-_RELATIVE_DATE = re.compile(r"^(\d+)\s+(day|week|month|year)s?\s+ago$", re.IGNORECASE)
+_RELATIVE_DATE = re.compile(
+    r"\b(\d+|an?)\+?\s*(minute|min|hour|hr|day|week|month|year)s?\s+ago", re.IGNORECASE,
+)
 
 
 def normalize_posted_date(value: str | None, *, today: date | None = None) -> tuple[str | None, bool]:
-    """Normalize an ISO or relative posting date using the local date."""
+    """Turn an ISO or relative posting date ("Reposted 6 days ago") into an ISO date.
+
+    Relative phrases are counted back from today, the day the paste is saved, and
+    marked as estimates: sites round them ("2 weeks ago" may be 14-20 days).
+    """
     if value is None or not value.strip():
         return None, True
     current = today or date.today()
     candidate = value.strip().casefold()
-    if candidate == "today":
+    if candidate in ("today", "just now") or candidate.endswith(" today"):
         return current.isoformat(), False
-    if candidate == "yesterday":
+    if candidate == "yesterday" or candidate.endswith(" yesterday"):
         return (current - timedelta(days=1)).isoformat(), False
-    relative = _RELATIVE_DATE.fullmatch(candidate)
+    relative = _RELATIVE_DATE.search(candidate)
     if relative:
-        count = int(relative.group(1))
-        unit = relative.group(2).casefold()
-        if unit == "day":
+        count = 1 if relative.group(1) in ("a", "an") else int(relative.group(1))
+        unit = relative.group(2)
+        if unit in ("minute", "min", "hour", "hr"):
+            # A few hours can cross midnight, so this is still an estimate.
+            result = current
+        elif unit == "day":
             result = current - timedelta(days=count)
         elif unit == "week":
             result = current - timedelta(weeks=count)
@@ -73,6 +93,20 @@ def normalize_posted_date(value: str | None, *, today: date | None = None) -> tu
         # Unknown date phrases are not guessed. Storage fills today's date and
         # marks it as an estimate when date_posted is null.
         return None, True
+
+
+def posted_date_view(value: str | None, *, today: date | None = None) -> dict:
+    """What the approval card shows for date_posted: the saved date and its origin."""
+    current = today or date.today()
+    normalized, is_estimate = normalize_posted_date(value, today=current)
+    original = value.strip() if isinstance(value, str) and value.strip() else None
+    return {
+        "date": normalized or current.isoformat(),
+        "is_estimate": is_estimate,
+        "original": original if original != normalized else None,
+        "counted_from": current.isoformat(),
+        "recognized": normalized is not None,
+    }
 
 
 def duplicate_candidates(company: str, title: str) -> list[dict]:
@@ -373,6 +407,7 @@ def add_posting_action(
     salary: str | None = None,
     notes: str | None = None,
     related_postings: list[str] | None = None,
+    source_quotes: list[SourceQuote] | None = None,
 ) -> dict:
     """Save an extracted job posting after explicit human approval.
 
@@ -382,6 +417,14 @@ def add_posting_action(
     Do not pass the source text: code saves the user's own pasted message
     verbatim beside the record. Python generates the JOB ID, date added, and REQ IDs.
     Leave ``related_postings`` empty; the user links duplicates on the approval card.
+    Pass ``date_posted`` as written on the page ("6 days ago"); code converts it.
+
+    ``source_quotes``: one entry per extracted field, requirement, and
+    responsibility. ``value`` is the item exactly as you pass it here; ``quote``
+    is the shortest phrase copied character for character from the user's
+    pasted text that supports it (use "..." to skip words). Never paraphrase a
+    quote. The approval card highlights each quote in the pasted text, and code
+    flags any quote it cannot find. Quotes are not saved.
     """
     raw_text = find_pasted_text(title, company)
     if raw_text is None:
@@ -390,6 +433,8 @@ def add_posting_action(
             "Ask the user to paste the posting again."
         )
     normalized_date, is_estimate = normalize_posted_date(date_posted)
+    # Keep the page's own wording ("6 days ago") beside the computed date.
+    date_text = date_posted.strip() if date_posted and date_posted.strip() != normalized_date else None
     fields = {
         "title": title,
         "company": company,
@@ -400,6 +445,7 @@ def add_posting_action(
         "source_url": source_url,
         "date_posted": normalized_date,
         "date_posted_is_estimate": (is_estimate or date_posted_is_estimate) if date_posted else True,
+        "date_posted_text": date_text,
         "requirements": normalize_requirements(requirements),
         "responsibilities": responsibilities,
         "salary": salary,
