@@ -411,8 +411,9 @@ def add_posting_action(
 ) -> dict:
     """Save an extracted job posting after explicit human approval.
 
-    Before calling, extract a clean posting from the user's supplied text and run
-    ``find_duplicate_candidates``. The approval screen shows these exact fields.
+    Call this as soon as the user pastes a posting, without asking first: the
+    approval card is the confirmation, and code runs the duplicate check for it.
+    Extract a clean posting from the user's text. The card shows these exact fields.
     Exclude page chrome and all recruiter or other people's names/profile details.
     Do not pass the source text: code saves the user's own pasted message
     verbatim beside the record. Python generates the JOB ID, date added, and REQ IDs.
