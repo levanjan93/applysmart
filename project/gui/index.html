@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="chat-token" content="CHAT_TOKEN">
+  <title>Job Search Assistant</title>
+  <link rel="stylesheet" href="/style.css">
+  <script src="/chat.js" defer></script>
+  <script src="/analysis.js" defer></script>
+  <script src="/views.js" defer></script>
+</head>
+<body>
+  <main>
+    <header>
+      <p class="eyebrow">PERSONAL JOB SEARCH</p>
+      <h1>Job Search Assistant</h1>
+      <p>Add job postings and experience, or upload a resume you select. The agent cannot browse filesystem paths, and every save pauses for your review.</p>
+    </header>
+    <nav class="tabs" role="tablist" aria-label="Views">
+      <button type="button" role="tab" data-tab="chat" aria-selected="true">Chat <span id="approval-dot" class="tab-dot" hidden title="An approval is waiting"></span></button>
+      <button type="button" role="tab" data-tab="postings" aria-selected="false">Postings</button>
+      <button type="button" role="tab" data-tab="experience" aria-selected="false">Experience</button>
+    </nav>
+
+    <div id="tab-chat" role="tabpanel">
+      <form id="resume-form">
+        <label for="resume-file">Resume upload</label>
+        <div class="upload-row">
+          <input id="resume-file" type="file" accept=".pdf,.docx,.txt,.md" required>
+          <button id="upload-resume" type="submit">Upload and review</button>
+        </div>
+        <p class="hint">PDF, DOCX, TXT, or Markdown; maximum 10 MB. The selection is held in memory until you approve or reject it.</p>
+      </form>
+      <section id="conversation" aria-label="Conversation" aria-live="polite"></section>
+      <section id="analysis-view" class="analysis-view" hidden aria-label="Evidence review"></section>
+      <section id="approval" class="approval" hidden aria-label="Save approval"></section>
+      <form id="chat-form">
+        <label for="prompt">Message</label>
+        <textarea id="prompt" rows="4" maxlength="6000" required placeholder="Paste a job posting and say whether you want to save it."></textarea>
+        <div class="actions"><p id="status" role="status">Connecting…</p><button id="send" type="submit" disabled>Send</button></div>
+      </form>
+    </div>
+
+    <section id="tab-postings" role="tabpanel" hidden aria-label="Saved postings"></section>
+    <section id="tab-experience" role="tabpanel" hidden aria-label="Experience database"></section>
+
+    <footer>Local single-user interface. The agent has no tool for opening arbitrary paths. Saves made by the assistant pause until you approve the exact content; edits you make in the Postings and Experience views are saved directly and logged.</footer>
+  </main>
+</body>
+</html>

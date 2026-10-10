@@ -1,0 +1,31 @@
+ALEX TAN
+alex.tan@example.com | +65 9000 0000 | linkedin.com/in/alex-tan-example
+
+EDUCATION
+Singapore Management University — Master of IT in Business (Analytics)          Aug 2025 – Dec 2026
+• GPA 3.7/4.0
+• Coursework: Machine Learning, Human-AI Interaction, Data Visualisation
+Example University — BSc Statistics, Second Upper Honours                         2017 – 2021
+
+WORK EXPERIENCE
+Data Analyst, Example Bank, Singapore                                                Jul 2022 – Present
+• Built weekly SQL reports for the retail lending team, cutting manual prep time by 30%
+• Helped migrate 40+ dashboards from Excel to Tableau
+• Presented monthly loan performance findings to the product team
+Business Analyst Intern, RetailCo                                                    May 2021 – Dec 2021
+• Cleaned and analysed point-of-sale data in Python and pandas
+• Supported the pricing team with weekly competitor price tracking
+
+PROJECTS
+Customer Churn Prediction (SMU Data Hackathon, Mar 2026)
+• Participated in a 4-person team that built a churn model in Python (XGBoost)
+• Placed 3rd of 25 teams
+
+LEADERSHIP & ACTIVITIES
+Vice-President, SMU Analytics Club                                                   2025 – 2026
+• Organised 6 workshops on SQL and Tableau for 200+ students
+
+SKILLS
+Programming: Python, SQL, R
+Tools: Tableau, Power BI, Excel, Git
+Languages: English, Mandarin
