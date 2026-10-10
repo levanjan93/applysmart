@@ -569,6 +569,7 @@ function renderApproval(pending, force = false) {
   if (!force && encoded === previousApproval) return;
   previousApproval = encoded;
   approval.replaceChildren();
+  approval.classList.remove("approval-fit");
   approval.hidden = !pending;
   if (!pending) return;
   const toolName = pending.tool_name || "write_tool";
@@ -609,6 +610,7 @@ function renderApproval(pending, force = false) {
     });
     const cancel = el("button", {className: "secondary", textContent: "Cancel"});
     cancel.addEventListener("click", () => renderApproval(pending, true));
+    approval.classList.remove("approval-fit");
     approval.replaceChildren(
       el("h2", {textContent: "Edit before saving"}),
       el("p", {className: "muted", textContent: "Your edited version is saved exactly as you leave it; the assistant does not rewrite it."}),
@@ -619,6 +621,12 @@ function renderApproval(pending, force = false) {
     el("h2", {textContent: labels[toolName] || `Review ${toolName} before continuing`}),
     ...proposalView(toolName, args, context).filter(Boolean),
     el("div", {className: "approval-actions"}, approve, deleting ? null : edit, reject));
+  if (toolName === "add_posting") {
+    approval.classList.add("approval-fit");
+    // Bring a new card fully into view once; later polls do not move the page.
+    // An instant jump: a smooth scroll is cancelled by the refresh that follows.
+    if (!force) requestAnimationFrame(() => approval.scrollIntoView({block: "start"}));
+  }
 }
 
 async function decide(payload) {

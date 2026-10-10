@@ -148,11 +148,19 @@ footer { margin-top: 24px; color: #647386; font-size: .84rem; }
 /* Posting card: extracted items linked to the pasted text. */
 .source-summary { margin: 0 0 10px; font-size: .9rem; }
 .posting-columns { align-items: start; }
-.posting-source { position: sticky; top: 12px; }
+/* The posting card fits the window: each column scrolls on its own and the
+   Approve/Edit/Reject buttons stay visible, whatever the screen height. */
+.approval.approval-fit { display: flex; flex-direction: column; max-height: calc(100vh - 24px); max-height: calc(100dvh - 24px); scroll-margin-top: 12px; }
+.approval-fit > * { flex: none; }
+.approval-fit .posting-columns { flex: 1 1 auto; min-height: 240px; grid-template-rows: minmax(0, 1fr); align-items: stretch; }
+.approval-fit .posting-columns > section { min-height: 0; overflow: auto; padding-right: 4px; }
+.approval-fit .posting-columns > .posting-source { display: flex; flex-direction: column; overflow: hidden; }
+.approval-fit .posting-source > * { flex: none; }
+.approval-fit .posting-scroll { flex: 1 1 auto; min-height: 0; max-height: none; }
 .posting-source-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
 .posting-source-head h3 { margin: 4px 0; }
 .small-note { font-size: .8rem; margin: 0 0 6px; }
-.posting-scroll { position: relative; max-height: calc(100vh - 110px); overflow: auto; background: #f5f7fa; border-radius: 8px; padding: 10px 12px; }
+.posting-scroll { position: relative; max-height: 70vh; overflow: auto; background: #f5f7fa; border-radius: 8px; padding: 10px 12px; }
 .posting-scroll .posting-original { max-height: none; margin: 0; padding: 0; background: none; }
 .posting-text { font-size: .9rem; line-height: 1.5; }
 .pt-line { white-space: pre-wrap; overflow-wrap: anywhere; padding: 1px 0; }
@@ -174,4 +182,8 @@ footer { margin-top: 24px; color: #647386; font-size: .84rem; }
 .source-mark { margin-left: 6px; font-weight: 700; cursor: help; }
 .source-missing { color: #a83c3c; }
 .source-approx { color: #b07514; }
-@media (max-width: 720px) { .posting-source { position: static; } .posting-scroll { max-height: 60vh; } }
+@media (max-width: 720px) {
+  .approval.approval-fit { max-height: none; }
+  .approval-fit .posting-columns > section, .approval-fit .posting-columns > .posting-source { overflow: visible; }
+  .approval-fit .posting-scroll { max-height: 60vh; }
+}
