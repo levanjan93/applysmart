@@ -14,6 +14,17 @@ article, #chat-form, #resume-form, .approval { background: white; border: 1px so
 .hint { margin: 10px 0 0; color: #617084; font-size: .88rem; }
 article h2, .approval h2 { margin: 0 0 8px; font-size: 1rem; }
 article p { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.5; }
+.md { line-height: 1.55; overflow-wrap: anywhere; }
+.md > :first-child { margin-top: 0; }
+.md > :last-child { margin-bottom: 0; }
+.md p { white-space: normal; margin: 0 0 10px; }
+.md h3 { font-size: 1.02rem; margin: 18px 0 8px; }
+.md h4 { font-size: .95rem; margin: 18px 0 6px; color: #23466b; }
+.md ul, .md ol { margin: 0 0 12px; padding-left: 22px; }
+.md li { margin: 0 0 7px; }
+.md li::marker { color: #577aa1; }
+.md hr { border: 0; border-top: 1px solid #e3e9f0; margin: 16px 0; }
+.md code { font: .85em ui-monospace, SFMono-Regular, Consolas, monospace; background: #f0f3f7; padding: 1px 5px; border-radius: 4px; }
 .user { border-left: 4px solid #92b2d5; }
 .assistant { border-left: 4px solid #577aa1; }
 .artifacts { color: #24724c; border-left: 4px solid #3f9d6d; }

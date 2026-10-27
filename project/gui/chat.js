@@ -43,10 +43,74 @@ function addMessage(label, text, kind) {
   article.className = kind;
   const title = document.createElement("h2");
   title.textContent = label;
-  const body = document.createElement("p");
-  body.textContent = text;
+  let body;
+  if (kind === "assistant") {
+    body = markdownView(text);
+  } else {
+    body = document.createElement("p");
+    body.textContent = text;
+  }
   article.append(title, body);
   conversation.append(article);
+}
+
+// Inline Markdown: **bold**, *italic* / _italic_, and `code`. Text is only ever
+// set as textContent, so a reply cannot inject HTML.
+function inlineMarkdown(text) {
+  const nodes = [];
+  const pattern = /\*\*(.+?)\*\*|`([^`]+)`|(?<![\w*])\*(?!\s)(.+?)(?<!\s)\*(?![\w*])|(?<!\w)_(?!\s)(.+?)(?<!\s)_(?!\w)/g;
+  let last = 0;
+  for (const match of text.matchAll(pattern)) {
+    if (match.index > last) nodes.push(text.slice(last, match.index));
+    const [, bold, code, star, underscore] = match;
+    nodes.push(bold !== undefined ? el("strong", {}, ...inlineMarkdown(bold))
+      : code !== undefined ? el("code", {textContent: code})
+      : el("em", {}, ...inlineMarkdown(star ?? underscore)));
+    last = match.index + match[0].length;
+  }
+  if (last < text.length) nodes.push(text.slice(last));
+  return nodes;
+}
+
+// Block Markdown as the assistant writes it: headings, bullet and numbered
+// lists, horizontal rules, and paragraphs (single line breaks are kept).
+function markdownView(text) {
+  const root = el("div", {className: "md"});
+  let paragraph = null;
+  let list = null;
+  const closeBlocks = () => { paragraph = null; list = null; };
+  for (const line of String(text).split(/\r?\n/)) {
+    const heading = line.match(/^\s*(#{1,6})\s+(.*?)\s*#*\s*$/);
+    const bullet = line.match(/^\s*[-*+]\s+(.*)$/);
+    const numbered = line.match(/^\s*(\d+)[.)]\s+(.*)$/);
+    if (!line.trim()) {
+      closeBlocks();
+    } else if (/^\s*([-*_])(\s*\1){2,}\s*$/.test(line)) {
+      closeBlocks();
+      root.append(el("hr"));
+    } else if (heading) {
+      closeBlocks();
+      root.append(el(heading[1].length <= 2 ? "h3" : "h4", {}, ...inlineMarkdown(heading[2])));
+    } else if (bullet || numbered) {
+      paragraph = null;
+      const tag = bullet ? "ul" : "ol";
+      if (!list || list.tagName.toLowerCase() !== tag) {
+        list = el(tag);
+        if (numbered && numbered[1] !== "1") list.start = Number(numbered[1]);
+        root.append(list);
+      }
+      list.append(el("li", {}, ...inlineMarkdown(bullet ? bullet[1] : numbered[2])));
+    } else if (list && /^\s+\S/.test(line) && list.lastChild) {
+      // An indented line continues the previous list item.
+      list.lastChild.append(" ", ...inlineMarkdown(line.trim()));
+    } else {
+      list = null;
+      if (paragraph) paragraph.append(el("br"));
+      else root.append(paragraph = el("p"));
+      paragraph.append(...inlineMarkdown(line));
+    }
+  }
+  return root;
 }
 
 function renderTurns(turns) {
