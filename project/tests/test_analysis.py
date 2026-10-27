@@ -88,6 +88,18 @@ class AnalysisTests(unittest.TestCase):
         self.assertEqual(result["invalid_claims"][0]["requirement_id"], "REQ-9")
         self.assertEqual([q["requirement_id"] for q in result["questions"]], ["REQ-4"])
 
+    def test_keeps_at_most_three_questions_required_ones_first(self):
+        draft = self.draft()
+        draft.questions = [
+            QuestionDraft(requirement_id="REQ-4", question="Have you worked in a bank?"),
+            QuestionDraft(requirement_id="REQ-3", question="Have you built Tableau dashboards?"),
+            QuestionDraft(requirement_id="REQ-3", question="A second question on the same thing?"),
+            QuestionDraft(requirement_id="REQ-1", question="How many years of SQL?"),
+            QuestionDraft(requirement_id="REQ-2", question="Have you led a team?"),
+        ]
+        result = analysis.validate_analysis(draft, self.posting, self.store.read_experience())
+        self.assertEqual([q["requirement_id"] for q in result["questions"]], ["REQ-3", "REQ-1", "REQ-2"])
+
     def test_add_to_resume_only_lists_valid_user_added_entries_not_on_resume(self):
         draft = AnalysisDraft(claims=[
             ClaimDraft(requirement_id="REQ-1", verdict="strong match", evidence=[self.sql["id"]], explanation="."),

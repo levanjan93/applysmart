@@ -19,6 +19,7 @@ from preferences import check_preferences
 from storage import default_store
 
 MATCHES = ("strong match", "partial match")
+MAX_QUESTIONS = 3
 _WORD = re.compile(r"[a-z0-9+#]+", re.IGNORECASE)
 
 
@@ -106,11 +107,17 @@ def validate_analysis(draft: AnalysisDraft, posting: dict, experience: list[dict
                 item = add_to_resume.setdefault(exp_id, {"exp_id": exp_id, "text": entry["text"], "requirement_ids": []})
                 item["requirement_ids"].append(claim["requirement_id"])
 
-    questions = [
-        {"requirement_id": q.requirement_id, "question": q.question.strip()}
-        for q in draft.questions
-        if q.requirement_id in requirements and q.question.strip()
-    ]
+    # At most MAX_QUESTIONS, one per requirement, most useful first: required
+    # before preferred, gaps before partial matches.
+    verdicts = {claim["requirement_id"]: claim["verdict"] for claim in claims}
+    asked = {}
+    for q in draft.questions:
+        if q.requirement_id in requirements and q.question.strip() and q.requirement_id not in asked:
+            asked[q.requirement_id] = {"requirement_id": q.requirement_id, "question": q.question.strip()}
+    questions = sorted(asked.values(), key=lambda q: (
+        requirements[q["requirement_id"]]["type"] != "required",
+        verdicts[q["requirement_id"]] != "gap",
+    ))[:MAX_QUESTIONS]
     return {
         "claims": claims,
         "add_to_resume": list(add_to_resume.values()),
@@ -244,7 +251,7 @@ def agent_summary(analysis: dict) -> dict:
         ],
         "preference_checks": analysis.get("preference_checks", []),
         "add_to_resume": analysis["add_to_resume"],
-        "questions": analysis["questions"],
+        "questions": analysis["questions"][:MAX_QUESTIONS],
         "invalid_claims": analysis["invalid_claims"],
         "check_status": analysis.get("check_status"),
         "format_instructions": default_store().read_analysis_instructions(),

@@ -32,3 +32,13 @@ For a gap or partial match where the person might have relevant experience
 that is not in the database, add a short question tied to that
 `requirement_id`, for example "Have you used Tableau?". Never suggest adding
 experience as if it were true; missing experience becomes a question.
+
+- Ask at most 3 questions in total, one per requirement. Pick the ones whose
+  answer would change the fit most: required gaps first, then required
+  partial matches, then preferred ones. Code keeps only 3.
+- Write each question in plain, everyday words, as you would ask a friend:
+  one short sentence (about 15 words or fewer) asking one thing, answerable in
+  a few words. No jargon, no acronyms, no lists of examples, and no "or"
+  chains of alternatives. Good: "Have you built a fraud model at work?"
+  Bad: "Have you done any predictive modelling, risk modelling, or data
+  science work, such as credit, fraud, or forecasting models?"

@@ -65,7 +65,9 @@ and title/company when those details are available.
   state it), each with its `detail`, and sum up the `met` checks in one line.
   Never soften a `not met`. When it is empty, skip the section.
 - "Add to your resume" lists only the returned `add_to_resume` items. Questions
-  come only from the returned `questions` (you may shorten them).
+  come only from the returned `questions`: never more than 3, never new ones.
+  Keep them as plain and short as the result gives them, or make them plainer;
+  never make them longer or add examples.
 - End by telling the user they can open the evidence review below your reply to
   compare each claim with its evidence and mark whether they agree.
 - Use `check_claims` with the analysis ID only when the user asks to re-check.
