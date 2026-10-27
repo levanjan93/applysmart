@@ -15,6 +15,7 @@ from typing import Literal
 from pydantic import BaseModel
 
 from llm import ask as _ask, model_names
+from preferences import check_preferences
 from storage import default_store
 
 MATCHES = ("strong match", "partial match")
@@ -191,6 +192,15 @@ async def run_fit_analysis(job_id: str) -> dict:
         **validate_analysis(draft, posting, experience),
     }
     await check_analysis(analysis, experience)
+    try:
+        raw_text = store.read_raw_text(posting["id"])
+    except Exception:
+        raw_text = ""
+    # The user's own requirements (salary, job type, deal-breakers), as they
+    # stood when this analysis ran.
+    analysis["preference_checks"] = await check_preferences(
+        posting, raw_text, store.read_job_preferences(), ask=_ask,
+    )
     analysis_id = store.save_analysis(posting["id"], analysis)
     return store.read_analysis(analysis_id)
 
@@ -232,6 +242,7 @@ def agent_summary(analysis: dict) -> dict:
             }
             for claim in claims
         ],
+        "preference_checks": analysis.get("preference_checks", []),
         "add_to_resume": analysis["add_to_resume"],
         "questions": analysis["questions"],
         "invalid_claims": analysis["invalid_claims"],

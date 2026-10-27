@@ -66,8 +66,8 @@ class WriteOutcomeTests(unittest.TestCase):
         collect_write_outcomes(result, outcomes)
         collect_write_outcomes(result, outcomes)
         self.assertEqual(list(outcomes.values()), [
-            {"ok": True, "text": "Saved 2 resume entries (EXP-0001 to EXP-0003)", "ids": ["EXP-0001", "EXP-0003"]},
-            {"ok": False, "text": "SAVE FAILED: nothing was saved (PermissionError: Access is denied)", "ids": []},
+            {"ok": True, "kind": "resume", "text": "Saved 2 resume entries (EXP-0001 to EXP-0003)", "ids": ["EXP-0001", "EXP-0003"]},
+            {"ok": False, "kind": "failed", "text": "SAVE FAILED: nothing was saved (PermissionError: Access is denied)", "ids": []},
         ])
 
     def test_failed_validation_names_the_missing_fields(self):

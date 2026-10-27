@@ -4,12 +4,14 @@ const send = document.querySelector("#send");
 const statusLine = document.querySelector("#status");
 const conversation = document.querySelector("#conversation");
 const approval = document.querySelector("#approval");
+const nextSteps = document.querySelector("#next-steps");
 const resumeForm = document.querySelector("#resume-form");
 const resumeFile = document.querySelector("#resume-file");
 const uploadResume = document.querySelector("#upload-resume");
 const token = document.querySelector('meta[name="chat-token"]').content;
 let previous = "";
 let previousApproval = "";
+let previousSteps = "";
 let submitting = false;
 
 async function request(path, payload) {
@@ -721,6 +723,35 @@ function renderApproval(pending, force = false) {
   }
 }
 
+// Up to three likely next requests, chosen by the server after each turn.
+function renderNextSteps(steps) {
+  const encoded = JSON.stringify(steps || []);
+  if (encoded === previousSteps) return;
+  previousSteps = encoded;
+  nextSteps.replaceChildren();
+  nextSteps.hidden = !steps?.length;
+  if (!steps?.length) return;
+  nextSteps.append(el("span", {className: "next-steps-label", textContent: "Next:"}));
+  for (const step of steps) {
+    const button = el("button", {type: "button", className: "secondary small", textContent: step.label});
+    button.addEventListener("click", () => {
+      if (step.message) {
+        askInChat(step.message);
+      } else if (step.action === "compose") {
+        promptBox.placeholder = "Paste the job posting here, then press Send.";
+        promptBox.focus();
+        promptBox.scrollIntoView({block: "center"});
+      } else if (step.action === "tab") {
+        showTab(step.tab);
+      } else if (step.action === "upload") {
+        resumeForm.scrollIntoView({block: "center"});
+        resumeFile.focus();
+      }
+    });
+    nextSteps.append(button);
+  }
+}
+
 async function decide(payload) {
   try {
     await request("/api/approval", payload);
@@ -739,6 +770,7 @@ async function refresh() {
     const state = await request("/api/state");
     renderTurns(state.turns);
     renderApproval(state.pending);
+    renderNextSteps(submitting ? [] : state.suggestions);
     if (typeof notePending === "function") notePending(Boolean(state.pending));
     send.disabled = submitting || state.busy;
     uploadResume.disabled = submitting || state.busy;

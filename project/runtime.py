@@ -88,34 +88,34 @@ def load_openrouter_config(env_path: str | Path) -> OpenRouterConfig:
 def describe_write_output(output) -> dict | None:
     """Summarize one tool return value as a save or a failed save, else None."""
     if isinstance(output, str) and output.startswith(SAVE_FAILED):
-        return {"ok": False, "text": output.split(". Tell the user", 1)[0], "ids": []}
+        return {"ok": False, "kind": "failed", "text": output.split(". Tell the user", 1)[0], "ids": []}
     if not isinstance(output, dict) or output.get("saved") is not True:
         return None
     if isinstance(output.get("posting"), dict):
         posting = output["posting"]
         text = f"Saved {posting['id']} ({posting['title']}, {posting['company']})"
-        return {"ok": True, "text": text, "ids": [posting["id"]]}
+        return {"ok": True, "kind": "posting", "text": text, "ids": [posting["id"]]}
     if isinstance(output.get("status_change"), dict):
         change = output["status_change"]
         text = f"{change['job_id']} ({change['title']}, {change['company']}): status {change['from']} → {change['to']}"
-        return {"ok": True, "text": text, "ids": [change["job_id"]]}
+        return {"ok": True, "kind": "status", "text": text, "ids": [change["job_id"]]}
     if output.get("instructions_updated"):
-        return {"ok": True, "text": "Updated your analysis instructions", "ids": ["analysis_instructions"]}
+        return {"ok": True, "kind": "instructions", "text": "Updated your analysis instructions", "ids": ["analysis_instructions"]}
     if isinstance(output.get("deleted"), dict):
         entry = output["deleted"]
         text = f"Deleted {entry['id']}: {entry['text']}"
         if output.get("detached_details"):
             text += f" (its details {', '.join(output['detached_details'])} are now standalone)"
-        return {"ok": True, "text": text, "ids": [entry["id"]]}
+        return {"ok": True, "kind": "deleted", "text": text, "ids": [entry["id"]]}
     if isinstance(output.get("entry"), dict):
         entry = output["entry"]
-        return {"ok": True, "text": f"Saved {entry['id']}: {entry['text']}", "ids": [entry["id"]]}
+        return {"ok": True, "kind": "experience", "text": f"Saved {entry['id']}: {entry['text']}", "ids": [entry["id"]]}
     entries = output.get("entries")
     if isinstance(entries, list) and entries:
         span = entries[0]["id"] if len(entries) == 1 else f"{entries[0]['id']} to {entries[-1]['id']}"
         text = f"Saved {len(entries)} resume entries ({span})"
-        return {"ok": True, "text": text, "ids": [entry["id"] for entry in entries]}
-    return {"ok": True, "text": "Saved", "ids": []}
+        return {"ok": True, "kind": "resume", "text": text, "ids": [entry["id"] for entry in entries]}
+    return {"ok": True, "kind": "saved", "text": "Saved", "ids": []}
 
 
 def collect_write_outcomes(result, outcomes: dict) -> None:

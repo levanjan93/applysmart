@@ -120,6 +120,30 @@ function gapList(claims, type) {
   return list;
 }
 
+const PREFERENCE_MARKS = {
+  "not met": ["✗", "Doesn't meet"], "partly met": ["≈", "Partly meets"],
+  unknown: ["?", "Not stated"], met: ["✓", "Meets"],
+};
+
+// The posting against the user's own requirements, problems first.
+function preferenceList(checks) {
+  if (!checks?.length) {
+    const link = el("button", {type: "button", className: "secondary small", textContent: "Set my job requirements"});
+    link.addEventListener("click", () => showTab("requirements"));
+    return el("p", {className: "muted"}, "You haven't set any job requirements, so none were checked. ", link);
+  }
+  const order = ["not met", "partly met", "unknown", "met"];
+  const list = el("ul", {className: "plain-list pref-checks"});
+  for (const check of [...checks].sort((a, b) => order.indexOf(a.status) - order.indexOf(b.status))) {
+    const [mark, label] = PREFERENCE_MARKS[check.status] || ["?", check.status];
+    list.append(el("li", {className: `pref-check pref-${check.status.replace(" ", "-")}`},
+      el("span", {className: "pref-mark", textContent: mark, title: label}),
+      el("span", {}, el("strong", {textContent: `${check.label}: `}), `${label}. ${check.detail}`,
+        check.by === "model" ? el("span", {className: "muted", textContent: " (judged by the checker model)"}) : null)));
+  }
+  return list;
+}
+
 function renderAnalysis(view) {
   const analysis = view.analysis;
   const matches = analysis.claims.filter(claim => claim.verdict !== "gap" || !claim.valid);
@@ -151,6 +175,10 @@ function renderAnalysis(view) {
         .filter(rating => counts[rating])
         .map(rating => el("span", {className: `badge badge-${rating}`, textContent: `${counts[rating]} ${RATING_LABELS[rating].toLowerCase()}`}))),
     el("p", {className: "muted", textContent: "Claims flagged by the independent checker come first. Open a claim to compare the requirement with the cited experience, then record whether you agree."}),
+    el("h3", {textContent: "Your requirements"}),
+    analysis.preference_checks === undefined
+      ? el("p", {className: "muted", textContent: "This analysis was made before requirement checks existed."})
+      : preferenceList(analysis.preference_checks),
     el("h3", {textContent: "What fits — claims to verify"}),
     matches.length ? fits : el("p", {className: "muted", textContent: "No matches were claimed."}),
     el("h3", {textContent: "What doesn't fit"}),

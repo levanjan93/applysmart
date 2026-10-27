@@ -274,6 +274,14 @@ def read_tracking_log(job_id: str | None = None) -> list[dict]:
 
 
 @function_tool
+def read_job_preferences() -> dict:
+    """Read the user's own job requirements: minimum monthly salary, accepted job
+    types and work arrangements, and deal-breakers. The user edits them in the
+    My requirements tab; fit analyses check postings against them."""
+    return default_store().read_job_preferences()
+
+
+@function_tool
 def read_experience(category: str | None = None, source: str | None = None) -> list[dict]:
     """Read saved experience facts, optionally filtered by category or source."""
     return default_store().read_experience(category=category, source=source)
@@ -588,7 +596,7 @@ def approval_tool_name(interruption) -> str:
 
 __all__ = [
     "SAVE_FAILED", "WRITE_ACTIONS", "add_posting", "delete_experience", "propose_analysis_instructions",
-    "read_tracking_log", "search_with_history", "update_status", "analyze_fit", "check_claims", "approval_details", "approval_tool_name",
+    "read_job_preferences", "read_tracking_log", "search_with_history", "update_status", "analyze_fit", "check_claims", "approval_details", "approval_tool_name",
     "duplicate_candidates", "execute_edited", "save_failed",
     "find_duplicate_candidates", "find_pasted_text", "list_postings", "missing_arguments", "normalize_company",
     "normalize_posted_date", "normalize_requirements", "import_resume",

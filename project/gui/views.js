@@ -4,6 +4,7 @@
 const tabButtons = [...document.querySelectorAll(".tabs [data-tab]")];
 const postingsTab = document.querySelector("#tab-postings");
 const experienceTab = document.querySelector("#tab-experience");
+const requirementsTab = document.querySelector("#tab-requirements");
 const STATUSES = ["saved", "applied", "interviewing", "offer", "rejected", "withdrawn"];
 let currentTab = "chat";
 let selectedPosting = null;
@@ -13,9 +14,10 @@ const experienceFilters = {source: "", onResume: "", text: ""};
 function showTab(name) {
   currentTab = name;
   for (const button of tabButtons) button.setAttribute("aria-selected", String(button.dataset.tab === name));
-  for (const tab of ["chat", "postings", "experience"]) document.querySelector(`#tab-${tab}`).hidden = tab !== name;
+  for (const tab of ["chat", "postings", "experience", "requirements"]) document.querySelector(`#tab-${tab}`).hidden = tab !== name;
   if (name === "postings") loadPostings();
   if (name === "experience") loadExperience();
+  if (name === "requirements") loadRequirements();
 }
 tabButtons.forEach(button => button.addEventListener("click", () => showTab(button.dataset.tab)));
 
@@ -278,4 +280,69 @@ function renderExperience(entries) {
       `${fromResume} from your resume, ${entries.length - fromResume} added by you, ${notOnResume} not on your resume. ` +
       "Edits and deletions here are saved directly and logged."}),
     visible.length ? body : el("p", {className: "muted", textContent: entries.length ? "No entries match these filters." : "No experience yet. Upload a resume or tell the assistant about your experience."}));
+}
+
+// ----- My requirements ----------------------------------------------------------
+
+const OPTION_LABELS = {
+  "full-time": "Full-time", "part-time": "Part-time", permanent: "Permanent", contract: "Contract",
+  temporary: "Temporary", internship: "Internship", freelance: "Freelance",
+  "on-site": "On-site", hybrid: "Hybrid", remote: "Remote",
+};
+
+async function loadRequirements() {
+  try {
+    renderRequirements(await request("/api/preferences"));
+  } catch (error) { requirementsTab.replaceChildren(el("p", {className: "note-warn", textContent: error.message})); }
+}
+
+function choiceGroup(title, hint, options, chosen) {
+  const boxes = options.map(option => {
+    const box = el("input", {type: "checkbox", value: option, checked: chosen.includes(option)});
+    return {box, node: el("label", {className: "form-check"}, box, el("span", {textContent: OPTION_LABELS[option] || option}))};
+  });
+  return {
+    node: el("fieldset", {className: "pref-group"},
+      el("legend", {textContent: title}),
+      el("p", {className: "muted small-note", textContent: hint}),
+      el("div", {className: "pref-choices"}, ...boxes.map(item => item.node))),
+    get: () => boxes.filter(item => item.box.checked).map(item => item.box.value),
+  };
+}
+
+function renderRequirements({preferences, options}) {
+  const salary = el("input", {type: "number", min: "0", step: "100", inputMode: "numeric", placeholder: "e.g. 7000"});
+  salary.value = preferences.min_monthly_salary ?? "";
+  const hours = choiceGroup("Hours", "Tick every option you would accept. Leave all unticked for no preference.", options.hours, preferences.hours);
+  const contracts = choiceGroup("Contract type", "For example, tick only Permanent to flag contract roles.", options.contract_types, preferences.contract_types);
+  const arrangements = choiceGroup("Work arrangement", "Flagged only when the posting says how the role is worked.", options.work_arrangements, preferences.work_arrangements);
+  const dealbreakers = el("textarea", {rows: 4, placeholder: "No shift or weekend work\nMust be based in Singapore\nNo sales targets"});
+  dealbreakers.value = (preferences.dealbreakers || []).join("\n");
+  const message = el("span", {className: "muted"});
+  const save = el("button", {type: "button", textContent: "Save my requirements"});
+  save.addEventListener("click", async () => {
+    try {
+      const fresh = await request("/api/preferences", {preferences: {
+        min_monthly_salary: salary.value.trim() || null,
+        hours: hours.get(), contract_types: contracts.get(), work_arrangements: arrangements.get(),
+        dealbreakers: dealbreakers.value.split("\n").map(line => line.trim()).filter(Boolean),
+      }});
+      renderRequirements(fresh);
+      requirementsTab.querySelector(".pref-saved").textContent = "Saved. Your next fit analysis will check postings against these.";
+    } catch (error) { message.textContent = error.message; }
+  });
+  requirementsTab.replaceChildren(el("article", {className: "pref-form"},
+    el("div", {className: "view-head"}, el("h2", {textContent: "My job requirements"})),
+    el("p", {className: "muted", textContent:
+      "Fit analyses check each posting against these and flag anything it doesn't meet or doesn't state. " +
+      "Leave a section empty if you have no preference. Changes are saved directly and logged."}),
+    el("label", {className: "form-field pref-salary"},
+      el("span", {textContent: "Minimum monthly salary (SGD)"}), salary,
+      el("span", {className: "muted small-note", textContent: "Annual salaries in postings are divided by 12. A range that only partly reaches your minimum is flagged as partly met."})),
+    hours.node, contracts.node, arrangements.node,
+    el("label", {className: "form-field"},
+      el("span", {textContent: "Other must-haves or deal-breakers (one per line)"}), dealbreakers,
+      el("span", {className: "muted small-note", textContent: "A separate model reads the posting for each line and quotes what it found; you'll see “not stated” when the posting doesn't say."})),
+    el("div", {className: "approval-actions"}, save, message),
+    el("p", {className: "note-ok pref-saved", textContent: preferences.updated_at ? `Last saved ${preferences.updated_at.slice(0, 16).replace("T", " ")} UTC.` : ""})));
 }

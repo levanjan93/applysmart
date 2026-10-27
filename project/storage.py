@@ -15,6 +15,8 @@ from copy import deepcopy
 from datetime import date, datetime, timezone
 from pathlib import Path
 
+from preferences import DEFAULT_PREFERENCES, PreferenceError, normalize_preferences
+
 STATUSES = ("saved", "applied", "interviewing", "offer", "rejected", "withdrawn")
 EXPERIENCE_SOURCES = ("resume", "user-added")
 EXPERIENCE_CATEGORIES = (
@@ -72,6 +74,7 @@ class Store:
         self.config_dir = self.data_dir / "config"
         self.ids_path = self.config_dir / "ids.json"
         self.instructions_path = self.config_dir / "analysis_instructions.md"
+        self.preferences_path = self.config_dir / "job_preferences.json"
         self.analyses_dir = self.data_dir / "analyses"
         self.interaction_log_path = self.data_dir / "interaction_log.jsonl"
         self._lock = self._lock_for(self.root)
@@ -498,6 +501,24 @@ class Store:
         with self._lock:
             self.ensure_layout()
             self._write_text(self.instructions_path, _exact_text(text, "analysis instructions"))
+
+    def read_job_preferences(self) -> dict:
+        """Return the user's job requirements; none are set until they save some."""
+        with self._lock:
+            if not self.preferences_path.is_file():
+                return deepcopy(DEFAULT_PREFERENCES)
+            return {**DEFAULT_PREFERENCES, **self._read_json(self.preferences_path)}
+
+    def write_job_preferences(self, preferences: dict) -> dict:
+        """Validate and replace the user's job requirements."""
+        try:
+            record = normalize_preferences(preferences)
+        except PreferenceError as exc:
+            raise StorageError(str(exc)) from exc
+        with self._lock:
+            self.ensure_layout()
+            self._write_json(self.preferences_path, record)
+        return record
 
     def _commit_posting(self, posting: dict, mutate, event: str, details: dict) -> dict:
         original = deepcopy(posting)

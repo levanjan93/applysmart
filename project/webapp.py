@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 import time
 import traceback
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -14,6 +15,7 @@ from urllib.parse import parse_qs, unquote, urlparse
 from analysis import evidence_view
 from duplicates import judge_candidates_blocking
 from posting_evidence import source_map
+from preferences import CONTRACT_TYPES, HOURS, WORK_ARRANGEMENTS, preferences_set
 from storage import StorageError, default_store
 from tools import (
     application_dates, approval_details, approval_tool_name, duplicate_candidates, find_pasted_text,
@@ -220,6 +222,79 @@ def edit_experience(payload: dict) -> tuple[int, dict]:
     return 200, {"entry": updated}
 
 
+def preferences_view() -> dict:
+    """The user's job requirements and the choices the form offers."""
+    return {
+        "preferences": default_store().read_job_preferences(),
+        "options": {"hours": HOURS, "contract_types": CONTRACT_TYPES, "work_arrangements": WORK_ARRANGEMENTS},
+    }
+
+
+def save_preferences(payload: dict) -> tuple[int, dict]:
+    store = default_store()
+    before = store.read_job_preferences()
+    try:
+        saved = store.write_job_preferences(payload.get("preferences"))
+    except StorageError as exc:
+        return 400, {"error": str(exc)}
+    log_direct_edit("job_preferences", "job_preferences", "edit", before, saved)
+    return 200, preferences_view()
+
+
+_JOB_ID = re.compile(r"JOB-\d+")
+
+
+def next_steps(record: dict | None) -> list[dict]:
+    """Up to three likely next requests, chosen by code from what just happened.
+
+    A step either sends ``message`` as a chat message, or names an ``action``
+    for the page: "compose" focuses the message box, "tab" opens a view, and
+    "upload" points at the resume upload.
+    """
+    store = default_store()
+    postings = {posting["id"]: posting for posting in store.list_postings()}
+
+    def analyze(job_id):
+        return {"label": f"Analyze my fit for {job_id}", "message": f"How well do I fit {job_id}?"}
+
+    def applied(job_id):
+        if postings.get(job_id, {}).get("status") != "saved":
+            return None
+        return {"label": f"Mark {job_id} as applied", "message": f"I applied to {job_id}."}
+
+    add = {"label": "Add a new posting", "action": "compose"}
+    requirements = (
+        None if preferences_set(store.read_job_preferences())
+        else {"label": "Set my job requirements", "action": "tab", "tab": "requirements"}
+    )
+    listing = {"label": "Show my saved postings", "message": "List my saved postings with their status."} if postings else None
+
+    steps = []
+    if record and record.get("status") != "failed":
+        outcomes = record.get("outcomes") or []
+        saved_jobs = [job_id for item in outcomes if item.get("kind") == "posting" for job_id in item["ids"]]
+        status_jobs = [job_id for item in outcomes if item.get("kind") == "status" for job_id in item["ids"]]
+        analyzed = [match.group() for item in record.get("analyses") or [] if (match := _JOB_ID.search(item.get("job", "")))]
+        if saved_jobs:
+            steps = [analyze(saved_jobs[-1]), applied(saved_jobs[-1]), {**add, "label": "Add another posting"}]
+        elif analyzed:
+            steps = [applied(analyzed[-1]), requirements, {**add, "label": "Add another posting"}, listing]
+        elif status_jobs:
+            steps = [{"label": "Which jobs have I applied to?", "message": "Which jobs have I applied to?"}, add]
+        elif any(item.get("kind") == "resume" for item in outcomes):
+            steps = [add, requirements, {"label": "Review my experience", "action": "tab", "tab": "experience"}]
+    if not steps:
+        if not store.read_experience():
+            steps.append({"label": "Upload my resume", "action": "upload"})
+        unanalyzed = [job_id for job_id in reversed(postings) if not store.list_analyses(job_id)]
+        steps += [add, requirements, analyze(unanalyzed[0]) if unanalyzed else None, listing]
+    unique = {}
+    for step in steps:
+        if step and step["label"] not in unique:
+            unique[step["label"]] = step
+    return list(unique.values())[:3]
+
+
 def remove_experience(payload: dict) -> tuple[int, dict]:
     store = default_store()
     exp_id = payload.get("exp_id")
@@ -243,22 +318,41 @@ class JobSearchServer(ThreadingHTTPServer):
         self.approvals = ApprovalBroker()
         self.runtime = runtime
         self.history = []
+        self._suggestions = None
         super().__init__(("127.0.0.1", 0), JobSearchHandler)
         self.origin = f"http://127.0.0.1:{self.server_port}"
 
     def snapshot(self):
         with self.state_lock:
-            return {
+            state = {
                 "turns": list(self.turns),
                 "busy": self.busy,
                 "pending": self.approvals.snapshot(),
             }
+            # Suggested next steps follow the latest finished turn; computed once
+            # per change rather than on every poll.
+            if not state["busy"] and not state["pending"]:
+                if self._suggestions is None:
+                    last = self.turns[-1]["result"] if self.turns else None
+                    try:
+                        self._suggestions = next_steps(last)
+                    except (StorageError, OSError):
+                        self._suggestions = []
+                state["suggestions"] = self._suggestions
+            else:
+                state["suggestions"] = []
+            return state
+
+    def refresh_suggestions(self):
+        with self.state_lock:
+            self._suggestions = None
 
     def run_turn(self, prompt):
         with self.state_lock:
             if self.busy:
                 return 409, {"error": "A turn is already running."}
             self.busy = True
+            self._suggestions = None
             turn = {"prompt": prompt, "result": None}
             self.turns.append(turn)
         try:
@@ -274,6 +368,7 @@ class JobSearchServer(ThreadingHTTPServer):
                 "error": None,
                 "artifacts": [item["text"] for item in outcomes if item["ok"]],
                 "save_errors": [item["text"] for item in outcomes if not item["ok"]],
+                "outcomes": [{"kind": item.get("kind"), "ids": item["ids"]} for item in outcomes if item["ok"]],
                 "analyses": getattr(self.runtime, "last_analyses", []),
             }
         except Exception as exc:
@@ -288,12 +383,14 @@ class JobSearchServer(ThreadingHTTPServer):
                 ),
                 "artifacts": [item["text"] for item in outcomes if item["ok"]],
                 "save_errors": [item["text"] for item in outcomes if not item["ok"]],
+                "outcomes": [{"kind": item.get("kind"), "ids": item["ids"]} for item in outcomes if item["ok"]],
                 "analyses": getattr(self.runtime, "last_analyses", []),
             }
         finally:
             with self.state_lock:
                 self.turns[-1] = {**turn, "result": record}
                 self.busy = False
+                self._suggestions = None
         return 200, record
 
 
@@ -345,6 +442,9 @@ class JobSearchHandler(BaseHTTPRequestHandler):
             return
         if self.path == "/api/experience":
             self.send_json(200, {"entries": default_store().read_experience()})
+            return
+        if self.path == "/api/preferences":
+            self.send_json(200, preferences_view())
             return
         if self.path.startswith("/api/analysis?"):
             analysis_id = parse_qs(urlparse(self.path).query).get("id", [""])[0]
@@ -406,9 +506,12 @@ class JobSearchHandler(BaseHTTPRequestHandler):
             "/api/posting/status": change_status,
             "/api/experience/update": edit_experience,
             "/api/experience/delete": remove_experience,
+            "/api/preferences": save_preferences,
         }
         if self.path in direct:
             status, result = direct[self.path](payload)
+            # A direct edit can change which next steps make sense.
+            self.server.refresh_suggestions()
             self.send_json(status, result)
             return
         if self.path == "/api/claim-review":

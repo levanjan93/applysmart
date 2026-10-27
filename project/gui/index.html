@@ -21,6 +21,7 @@
       <button type="button" role="tab" data-tab="chat" aria-selected="true">Chat <span id="approval-dot" class="tab-dot" hidden title="An approval is waiting"></span></button>
       <button type="button" role="tab" data-tab="postings" aria-selected="false">Postings</button>
       <button type="button" role="tab" data-tab="experience" aria-selected="false">Experience</button>
+      <button type="button" role="tab" data-tab="requirements" aria-selected="false">My requirements</button>
     </nav>
 
     <div id="tab-chat" role="tabpanel">
@@ -33,6 +34,7 @@
         <p class="hint">PDF, DOCX, TXT, or Markdown; maximum 10 MB. The selection is held in memory until you approve or reject it.</p>
       </form>
       <section id="conversation" aria-label="Conversation" aria-live="polite"></section>
+      <div id="next-steps" class="next-steps" hidden aria-label="Suggested next steps"></div>
       <section id="analysis-view" class="analysis-view" hidden aria-label="Evidence review"></section>
       <section id="approval" class="approval" hidden aria-label="Save approval"></section>
       <form id="chat-form">
@@ -44,6 +46,7 @@
 
     <section id="tab-postings" role="tabpanel" hidden aria-label="Saved postings"></section>
     <section id="tab-experience" role="tabpanel" hidden aria-label="Experience database"></section>
+    <section id="tab-requirements" role="tabpanel" hidden aria-label="My job requirements"></section>
 
     <footer>Local single-user interface. The agent has no tool for opening arbitrary paths. Saves made by the assistant pause until you approve the exact content; edits you make in the Postings and Experience views are saved directly and logged.</footer>
   </main>
