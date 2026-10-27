@@ -70,6 +70,20 @@ class WriteOutcomeTests(unittest.TestCase):
             {"ok": False, "text": "SAVE FAILED: nothing was saved (PermissionError: Access is denied)", "ids": []},
         ])
 
+    def test_failed_validation_names_the_missing_fields(self):
+        # The SDK reports only "Invalid JSON input" when a required field is missing.
+        import asyncio
+        import json
+        from agents.tool_context import ToolContext
+
+        arguments = json.dumps({
+            "source": "x", "company": "Grab", "location": "", "requirements": [], "responsibilities": [],
+        })
+        ctx = ToolContext(context=None, tool_name="add_posting", tool_call_id="c1", tool_arguments=arguments)
+        output = asyncio.run(tools.add_posting.on_invoke_tool(ctx, arguments))
+        self.assertTrue(output.startswith("SAVE FAILED"))
+        self.assertIn("missing required fields: title", output)
+
 
 class FakeState:
     def __init__(self):

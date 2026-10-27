@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import inspect
+import json
 import re
 from difflib import SequenceMatcher
 from calendar import monthrange
@@ -42,10 +44,32 @@ class SourceQuote(TypedDict):
 SAVE_FAILED = "SAVE FAILED"
 
 
-def save_failed(_ctx, error: Exception) -> str:
+def missing_arguments(tool_name: str, arguments) -> list[str]:
+    """Return the required parameters of a write tool that a call left out."""
+    action = WRITE_ACTIONS.get(tool_name)
+    if action is None or not isinstance(arguments, dict):
+        return []
+    return [
+        name for name, param in inspect.signature(action).parameters.items()
+        if param.default is inspect.Parameter.empty and arguments.get(name) is None
+    ]
+
+
+def save_failed(ctx, error: Exception) -> str:
     """Tell the model plainly that an approved write did not happen."""
+    reason = f"{type(error).__name__}: {error}"
+    # The SDK hides why arguments failed validation; name any missing fields
+    # so the model can retry with them instead of repeating the same call.
+    if str(error).startswith("Invalid JSON input for tool"):
+        try:
+            arguments = json.loads(getattr(ctx, "tool_arguments", None) or "{}")
+        except ValueError:
+            arguments = None
+        missing = missing_arguments(getattr(ctx, "tool_name", ""), arguments)
+        if missing:
+            reason += f"; missing required fields: {', '.join(missing)}"
     return (
-        f"{SAVE_FAILED}: nothing was saved ({type(error).__name__}: {error}). "
+        f"{SAVE_FAILED}: nothing was saved ({reason}). "
         "Tell the user the save failed and give this reason. Do not claim it was saved."
     )
 
@@ -566,7 +590,7 @@ __all__ = [
     "SAVE_FAILED", "WRITE_ACTIONS", "add_posting", "delete_experience", "propose_analysis_instructions",
     "read_tracking_log", "search_with_history", "update_status", "analyze_fit", "check_claims", "approval_details", "approval_tool_name",
     "duplicate_candidates", "execute_edited", "save_failed",
-    "find_duplicate_candidates", "find_pasted_text", "list_postings", "normalize_company",
+    "find_duplicate_candidates", "find_pasted_text", "list_postings", "missing_arguments", "normalize_company",
     "normalize_posted_date", "normalize_requirements", "import_resume",
     "propose_experience", "read_experience", "read_posting", "parse_resume",
     "search_experience", "search_postings", "set_user_messages", "title_keywords",

@@ -314,7 +314,7 @@ function postingView(args, context) {
   const fields = el("dl", {className: "fields"});
   for (const [key, label] of POSTING_FIELDS) {
     if (key === "date_posted_is_estimate") continue;
-    if (!(key in args) && key !== "date_posted") continue;
+    if (!(key in args) && key !== "date_posted" && !context.missing?.includes(key)) continue;
     const value = key === "date_posted" ? dateText(context.date_posted) || shown(args[key]) : shown(args[key]);
     fields.append(el("dt", {textContent: label}),
       checkable(key, el("dd", {textContent: value, className: value === "—" ? "muted" : ""})));
@@ -615,6 +615,13 @@ function renderApproval(pending, force = false) {
     textContent: deleting ? "Delete permanently" : hasDuplicates ? "Save as new posting" : "Approve and save",
   });
   approve.addEventListener("click", () => decide({decision: "approve"}));
+  // A call missing a required field cannot be saved as is; the user fills it in via Edit.
+  const missing = context.missing || [];
+  approve.disabled = missing.length > 0;
+  const missingNote = missing.length
+    ? el("p", {className: "note-warn", textContent:
+        `The assistant left out required fields: ${missing.join(", ")}. Click Edit to fill them in, or Reject.`})
+    : null;
   const edit = el("button", {className: "secondary", textContent: "Edit"});
   const reject = el("button", {
     className: deleting ? "secondary" : "danger",
@@ -639,6 +646,7 @@ function renderApproval(pending, force = false) {
   });
   approval.append(
     el("h2", {textContent: labels[toolName] || `Review ${toolName} before continuing`}),
+    missingNote,
     ...proposalView(toolName, args, context).filter(Boolean),
     el("div", {className: "approval-actions"}, approve, deleting ? null : edit, reject));
   if (toolName === "add_posting") {

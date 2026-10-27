@@ -122,6 +122,8 @@ class WebAppEditTests(unittest.TestCase):
             {"text": "Banking knowledge", "type": "preferred"},
             {"text": "Python", "type": "required"},
         ])
+        self.assertIn("source", context["missing"])
+        self.assertNotIn("title", context["missing"])
 
     def _wait_for_pending(self, server):
         deadline = time.monotonic() + 2

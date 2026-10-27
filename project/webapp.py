@@ -17,7 +17,7 @@ from posting_evidence import source_map
 from storage import StorageError, default_store
 from tools import (
     application_dates, approval_details, approval_tool_name, duplicate_candidates, find_pasted_text,
-    normalize_requirements, posted_date_view,
+    missing_arguments, normalize_requirements, posted_date_view,
 )
 from uploads import MAX_RESUME_BYTES, resume_uploads
 
@@ -26,7 +26,8 @@ ASSETS = Path(__file__).resolve().parent / "gui"
 
 def approval_context(tool_name: str, arguments: dict) -> dict:
     """Facts the approval card shows beside the proposal, computed by code."""
-    context = {}
+    # Approving a call without a required field always fails; the card says so.
+    context = {"missing": missing_arguments(tool_name, arguments)}
     try:
         if tool_name == "add_posting":
             # Shown instead of the raw arguments: this is exactly what will be saved.
