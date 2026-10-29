@@ -8,7 +8,7 @@ from pathlib import Path
 from agents import Agent
 
 from tools import (
-    add_posting, delete_experience, propose_analysis_instructions, read_job_preferences, read_tracking_log, update_status, analyze_fit, check_claims, find_duplicate_candidates, list_postings,
+    add_posting, ask_user, delete_experience, propose_analysis_instructions, read_job_preferences, read_tracking_log, update_status, analyze_fit, check_claims, find_duplicate_candidates, list_postings,
     import_resume, propose_experience, read_experience, read_posting,
     parse_resume, search_experience, search_postings, update_experience,
 )
@@ -25,7 +25,7 @@ TOOLS = [
     propose_experience, update_experience, delete_experience,
     analyze_fit, check_claims,
     update_status, read_tracking_log, propose_analysis_instructions,
-    read_job_preferences,
+    read_job_preferences, ask_user,
 ]
 def create_agent(model):
     """Create the job-search assistant with the selected OpenRouter model."""

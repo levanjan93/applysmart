@@ -124,6 +124,10 @@ function renderTurns(turns) {
   for (const turn of turns) {
     addMessage("You", turn.prompt, "user");
     const result = turn.result;
+    for (const item of result?.clarifications || []) {
+      const reply = item.answer == null ? "You skipped this question." : `You answered: ${item.answer}`;
+      addMessage("The assistant asked", `${item.question}\n${reply}`, "clarification");
+    }
     if (!result) {
       addMessage("Assistant", "Working…", "assistant");
       continue;
@@ -655,10 +659,14 @@ function renderApproval(pending, force = false) {
   if (!force && encoded === previousApproval) return;
   previousApproval = encoded;
   approval.replaceChildren();
-  approval.classList.remove("approval-fit");
+  approval.classList.remove("approval-fit", "question-card");
   approval.hidden = !pending;
   if (!pending) return;
   const toolName = pending.tool_name || "write_tool";
+  if (toolName === "ask_user") {
+    renderQuestion(pending.arguments || {}, force);
+    return;
+  }
   const context = pending.context || {};
   // Show the proposal as code will save it (requirements and resume entries are
   // normalized server-side), so the card matches the saved record exactly.
@@ -752,15 +760,47 @@ function renderNextSteps(steps) {
   }
 }
 
+// A clarifying question from the assistant (ask_user). Nothing is saved; the
+// answer goes back to the assistant, and skipping is always allowed.
+function renderQuestion(args, force) {
+  approval.classList.add("question-card");
+  const box = el("textarea", {rows: 2, maxLength: 2000, placeholder: "Type your answer, then press Enter"});
+  const answer = text => { if (text.trim()) decide({decision: "answer", answer: text.trim()}); };
+  const reply = el("button", {type: "button", textContent: "Send answer"});
+  reply.addEventListener("click", () => answer(box.value));
+  box.addEventListener("keydown", event => {
+    if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); answer(box.value); }
+  });
+  const skip = el("button", {type: "button", className: "secondary", textContent: "Skip this question"});
+  skip.addEventListener("click", () => decide({decision: "reject"}));
+  const options = (args.options || []).map(option => {
+    const button = el("button", {type: "button", className: "secondary", textContent: option});
+    button.addEventListener("click", () => answer(option));
+    return button;
+  });
+  approval.append(
+    el("h2", {textContent: "The assistant has a question"}),
+    el("p", {className: "question-text", textContent: args.question || ""}),
+    args.reason ? el("p", {className: "muted", textContent: `Why it's asking: ${args.reason}`}) : null,
+    options.length ? el("div", {className: "question-options"}, ...options) : null,
+    box,
+    el("div", {className: "approval-actions"}, reply, skip,
+      el("span", {className: "muted small-note", textContent: "Nothing is saved from this answer."})));
+  if (!force) requestAnimationFrame(() => { approval.scrollIntoView({block: "center"}); box.focus({preventScroll: true}); });
+}
+
 async function decide(payload) {
+  const asking = approval.classList.contains("question-card");
   try {
     await request("/api/approval", payload);
     renderApproval(null);
-    statusLine.textContent = payload.decision === "link"
+    statusLine.textContent = payload.decision === "answer" ? "Answer sent. The assistant is continuing…"
+      : payload.decision === "link"
       ? "Saving as a new posting linked to the existing one…"
       : payload.decision === "edit"
       ? "Saving your edited version…"
-      : payload.decision === "approve" ? "Approved. Saving…" : "Rejected. Nothing was saved.";
+      : payload.decision === "approve" ? "Approved. Saving…"
+      : asking ? "Skipped. The assistant will continue without it." : "Rejected. Nothing was saved.";
     await refresh();
   } catch (error) { statusLine.textContent = error.message; }
 }

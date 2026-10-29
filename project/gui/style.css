@@ -220,3 +220,9 @@ footer { margin-top: 24px; color: #647386; font-size: .84rem; }
 .pref-not-met .pref-mark { background: #fbe4e4; color: #a83c3c; }
 .pref-partly-met .pref-mark, .pref-unknown .pref-mark { background: #fff1d6; color: #8a6116; }
 .pref-met .pref-mark { background: #e2f3ea; color: #24724c; }
+.approval.question-card { border-color: #577aa1; background: #f7faff; }
+.question-text { font-size: 1.05rem; font-weight: 600; margin: 0 0 6px; }
+.question-card textarea { margin-top: 10px; }
+.question-options { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.clarification { border-left: 4px solid #8fa9c7; background: #f7faff; }
+.clarification p { color: #34475c; }

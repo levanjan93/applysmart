@@ -26,6 +26,8 @@ def summarize(records: list[dict]) -> dict:
     reviews: dict[str, Counter] = defaultdict(Counter)
     review_times: list[float] = []
     direct: Counter = Counter()
+    clarifications: Counter = Counter()
+    clarification_times: list[float] = []
     for record in records:
         kind = record.get("event_type")
         seconds = record.get("time_to_decision_seconds")
@@ -39,6 +41,10 @@ def summarize(records: list[dict]) -> dict:
             reviews[rating][record.get("decision", "?")] += 1
             if isinstance(seconds, (int, float)):
                 review_times.append(seconds)
+        elif kind == "clarification":
+            clarifications[record.get("decision", "?")] += 1
+            if isinstance(seconds, (int, float)):
+                clarification_times.append(seconds)
         elif kind == "direct_edit":
             direct[f"{record.get('item_type', '?')} {record.get('decision', '?')}"] += 1
 
@@ -70,6 +76,12 @@ def summarize(records: list[dict]) -> dict:
         "approvals": approval_rows,
         "claim_reviews": review_rows,
         "claim_review_mean_seconds": round(mean(review_times), 1) if review_times else None,
+        "clarifications": {
+            "asked": sum(clarifications.values()),
+            "answered": clarifications.get("answer", 0),
+            "skipped": clarifications.get("skip", 0),
+            "median_seconds": round(median(clarification_times), 1) if clarification_times else None,
+        },
         "direct_edits": dict(sorted(direct.items())),
     }
 
@@ -100,6 +112,13 @@ def main() -> int:
     print_table(summary["claim_reviews"], ["checker_rating", "total", "agree", "disagree", "disagree_rate"])
     if summary["claim_review_mean_seconds"] is not None:
         print(f"  mean time to decide: {summary['claim_review_mean_seconds']} s")
+    asked = summary["clarifications"]
+    print("\nClarifying questions the assistant asked (ask_user)")
+    if asked["asked"]:
+        print(f"  asked {asked['asked']}, answered {asked['answered']}, skipped {asked['skipped']}"
+              + (f", median {asked['median_seconds']} s to answer" if asked["median_seconds"] is not None else ""))
+    else:
+        print("  (none)")
     print("\nDirect edits in the Postings and Experience views")
     if summary["direct_edits"]:
         for key, count in summary["direct_edits"].items():

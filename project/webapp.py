@@ -114,6 +114,10 @@ class ApprovalBroker:
                 if not isinstance(arguments, dict):
                     return False
                 response["arguments"] = arguments
+            elif decision == "answer":
+                if self.pending.get("tool_name") != "ask_user" or not isinstance(arguments, str) or not arguments.strip():
+                    return False
+                response["answer"] = arguments[:2000]
             elif decision == "reject" and self.pending.get("tool_name") == "import_resume":
                 resume_uploads.discard(self.pending.get("arguments", {}).get("upload_id", ""))
             self.response = response
@@ -369,6 +373,7 @@ class JobSearchServer(ThreadingHTTPServer):
                 "artifacts": [item["text"] for item in outcomes if item["ok"]],
                 "save_errors": [item["text"] for item in outcomes if not item["ok"]],
                 "outcomes": [{"kind": item.get("kind"), "ids": item["ids"]} for item in outcomes if item["ok"]],
+                "clarifications": getattr(self.runtime, "last_clarifications", []),
                 "analyses": getattr(self.runtime, "last_analyses", []),
             }
         except Exception as exc:
@@ -384,6 +389,7 @@ class JobSearchServer(ThreadingHTTPServer):
                 "artifacts": [item["text"] for item in outcomes if item["ok"]],
                 "save_errors": [item["text"] for item in outcomes if not item["ok"]],
                 "outcomes": [{"kind": item.get("kind"), "ids": item["ids"]} for item in outcomes if item["ok"]],
+                "clarifications": getattr(self.runtime, "last_clarifications", []),
                 "analyses": getattr(self.runtime, "last_analyses", []),
             }
         finally:
@@ -520,8 +526,8 @@ class JobSearchHandler(BaseHTTPRequestHandler):
             return
         if self.path == "/api/approval":
             decision = payload.get("decision")
-            edited = payload.get("arguments")
-            if decision not in {"approve", "reject", "edit", "link"}:
+            edited = payload.get("answer") if decision == "answer" else payload.get("arguments")
+            if decision not in {"approve", "reject", "edit", "link", "answer"}:
                 self.send_json(400, {"error": "Choose approve, reject, or edit."})
                 return
             if not self.server.approvals.submit(decision, edited):

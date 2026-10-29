@@ -12,7 +12,7 @@ import llm
 from storage import default_store
 from tools import (
     SAVE_FAILED, approval_details, approval_tool_name, execute_edited, find_pasted_text,
-    save_failed, set_user_messages,
+    give_answer, save_failed, set_user_messages,
 )
 
 OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
@@ -159,8 +159,13 @@ def normalize_decision(decision) -> dict:
     """Accept a bare decision string or a decision dict from an approval handler."""
     if isinstance(decision, str):
         decision = {"decision": decision}
-    if not isinstance(decision, dict) or decision.get("decision") not in {"approve", "reject", "edit", "link"}:
+    if not isinstance(decision, dict) or decision.get("decision") not in {"approve", "reject", "edit", "link", "answer"}:
         return {"decision": "reject"}
+    if decision["decision"] == "answer":
+        answer = decision.get("answer")
+        if not isinstance(answer, str) or not answer.strip():
+            return {**decision, "decision": "reject"}
+        decision = {**decision, "answer": answer.strip()}
     return decision
 
 
@@ -177,6 +182,31 @@ def apply_decision(state, interruption, decision: dict, outcomes: dict) -> dict:
     before = approval_details(interruption)
     choice = decision["decision"]
     after = None
+    if tool_name == "ask_user":
+        # A clarification, not a save: the answer goes back to the model as
+        # the tool's result. Skipping tells the model to state its assumption.
+        if choice == "answer":
+            after = decision["answer"]
+            give_answer(call_id, after)
+            state.approve(interruption)
+        else:
+            choice = "skip"
+            state.reject(
+                interruption,
+                rejection_message=(
+                    "The user chose not to answer. Continue with the safest assumption, say plainly "
+                    "what you assumed, and do not ask the same question again."
+                ),
+            )
+        return {
+            "event_type": "clarification",
+            "item_type": "ask_user",
+            "call_id": call_id,
+            "decision": choice,
+            "time_to_decision_seconds": decision.get("seconds"),
+            "before": before,
+            "after": after,
+        }
     if choice == "approve":
         state.approve(interruption)
     elif choice in ("edit", "link"):
@@ -217,6 +247,9 @@ def apply_decision(state, interruption, decision: dict, outcomes: dict) -> dict:
 def finish_interaction(record: dict, outcomes: dict) -> dict:
     """Fill in saved record IDs from tool outcomes and drop the internal call ID."""
     outcome = outcomes.get(record.pop("call_id"))
+    if record["event_type"] == "clarification":
+        record["item_id"] = None
+        return record
     record["item_id"] = ", ".join(outcome["ids"]) if outcome and outcome["ids"] else None
     record["saved"] = record["decision"] != "reject" and bool(outcome and outcome["ok"])
     if record["item_id"] is None and isinstance(record["before"], dict):
@@ -228,6 +261,21 @@ def terminal_decision(interruption) -> dict:
     """Ask for approval in the terminal. Editing is available in the browser only."""
     data = approval_details(interruption)
     tool_name = approval_tool_name(interruption)
+    if tool_name == "ask_user":
+        print(f"\nThe assistant asks: {data.get('question')}")
+        print(f"Why: {data.get('reason')}")
+        options = data.get("options") or []
+        for number, option in enumerate(options, start=1):
+            print(f"  {number}. {option}")
+        started = time.monotonic()
+        answer = input("Your answer (a number, your own words, or Enter to skip): ").strip()
+        if answer.isdigit() and 1 <= int(answer) <= len(options):
+            answer = options[int(answer) - 1]
+        return {
+            "decision": "answer" if answer else "reject",
+            "answer": answer,
+            "seconds": round(time.monotonic() - started, 1),
+        }
     print(f"\n{tool_name} requires your approval")
     print("Exact proposed arguments:")
     for key, value in data.items():
@@ -285,6 +333,7 @@ class OpenRouterRuntime:
         # that happened before a turn failed.
         self.outcomes = outcomes = {}
         self.analyses = {}
+        self.clarifications = []
         set_user_messages([message_text(item) for item in messages if item.get("role") == "user"])
         result = Runner.run_sync(
             self.agent, messages, max_turns=12, run_config=self.run_config,
@@ -297,6 +346,10 @@ class OpenRouterRuntime:
             records = [
                 apply_decision(state, interruption, normalize_decision(handler(interruption)), outcomes)
                 for interruption in result.interruptions
+            ]
+            self.clarifications += [
+                {"question": (record["before"] or {}).get("question"), "answer": record["after"]}
+                for record in records if record["event_type"] == "clarification"
             ]
             try:
                 result = Runner.run_sync(
@@ -315,6 +368,11 @@ class OpenRouterRuntime:
     def last_analyses(self) -> list[dict]:
         """Analyses produced in the most recent turn."""
         return list(getattr(self, "analyses", {}).values())
+
+    @property
+    def last_clarifications(self) -> list[dict]:
+        """Questions the assistant asked in the most recent turn, with the answers."""
+        return list(getattr(self, "clarifications", []))
 
     @property
     def last_outcomes(self) -> list[dict]:

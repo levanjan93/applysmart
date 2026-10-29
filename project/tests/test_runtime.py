@@ -11,7 +11,7 @@ from unittest import mock
 import tools
 from runtime import (
     ConfigurationError, apply_decision, collect_write_outcomes, finish_interaction,
-    load_openrouter_config,
+    load_openrouter_config, normalize_decision,
 )
 from storage import Store
 from tools import save_failed
@@ -149,6 +149,46 @@ class ApprovalDecisionTests(unittest.TestCase):
         self.assertIn("rejected", state.rejected[0][1])
         logged = finish_interaction(record, outcomes)
         self.assertEqual((logged["decision"], logged["saved"], logged["item_id"]), ("reject", False, None))
+
+
+def question_interruption():
+    return SimpleNamespace(
+        tool_name="ask_user",
+        raw_item=SimpleNamespace(call_id="ask-1"),
+        arguments={"question": "Which job did you apply to?", "reason": "decides which job is updated",
+                   "options": ["JOB-0001", "JOB-0002"]},
+    )
+
+
+class ClarificationTests(unittest.TestCase):
+    def test_answer_reaches_the_tool_and_is_logged_as_a_clarification(self):
+        import asyncio
+        import json
+        from agents.tool_context import ToolContext
+
+        state, outcomes = FakeState(), {}
+        decision = normalize_decision({"decision": "answer", "answer": "  JOB-0002 ", "seconds": 3.0})
+        record = apply_decision(state, question_interruption(), decision, outcomes)
+        self.assertEqual(len(state.approved), 1)
+
+        # The approved SDK call then runs the real tool, which returns the answer.
+        arguments = json.dumps(question_interruption().arguments)
+        ctx = ToolContext(context=None, tool_name="ask_user", tool_call_id="ask-1", tool_arguments=arguments)
+        output = asyncio.run(tools.ask_user.on_invoke_tool(ctx, arguments))
+        self.assertEqual(output, {"question": "Which job did you apply to?", "answer": "JOB-0002"})
+
+        logged = finish_interaction(record, outcomes)
+        self.assertEqual((logged["event_type"], logged["decision"], logged["after"]), ("clarification", "answer", "JOB-0002"))
+        self.assertNotIn("saved", logged)
+
+    def test_skip_tells_the_model_to_state_its_assumption(self):
+        state, outcomes = FakeState(), {}
+        record = apply_decision(state, question_interruption(), normalize_decision({"decision": "reject"}), outcomes)
+        self.assertIn("say plainly what you assumed", state.rejected[0][1])
+        self.assertEqual(finish_interaction(record, outcomes)["decision"], "skip")
+
+    def test_a_blank_answer_counts_as_a_skip(self):
+        self.assertEqual(normalize_decision({"decision": "answer", "answer": "  "})["decision"], "reject")
 
 
 class WorkerThreadTests(unittest.TestCase):

@@ -11,6 +11,7 @@ from datetime import date, timedelta
 from typing import Literal, TypedDict
 
 from agents import function_tool
+from agents.tool_context import ToolContext
 
 import analysis
 import resume
@@ -249,6 +250,38 @@ def application_dates(events: list[dict]) -> dict:
             if changes else None
         ),
     }
+
+
+# Answers typed on a clarification card, keyed by tool call ID. The runtime
+# stores the user's answer here before resuming the run; ask_user returns it.
+_answers: dict[str, str] = {}
+
+
+def give_answer(call_id: str, answer: str) -> None:
+    """Hold the user's answer for the paused ask_user call with this ID."""
+    _answers[call_id] = answer
+
+
+def ask_user_action(ctx: ToolContext, question: str, reason: str, options: list[str] | None = None) -> dict:
+    """Ask the user one clarifying question and wait for their answer.
+
+    Use only when something unclear or missing would change a result: which
+    saved job they mean, whether a posting is the same role as a saved one,
+    their own role in an experience they describe, or a missing title or
+    company. ``question`` is one short, plain sentence. ``reason`` says in a
+    few words what the answer changes ("decides which job gets the status").
+    ``options`` lists 2-4 likely answers when there are some; the user can
+    always type their own. The user may skip; then continue with the safest
+    assumption and say what you assumed.
+    """
+    answer = _answers.pop(ctx.tool_call_id, None)
+    if answer is None:
+        raise ValueError("The user did not answer.")
+    return {"question": question, "answer": answer}
+
+
+# Pauses the run like an approval card; the browser shows a question instead.
+ask_user = function_tool(ask_user_action, name_override="ask_user", needs_approval=True)
 
 
 @function_tool
@@ -524,9 +557,10 @@ async def check_claims(analysis_id: str) -> dict:
 def propose_analysis_instructions_action(new_text: str, reason: str) -> dict:
     """Replace the user's analysis formatting instructions after approval.
 
-    Use only after the user has corrected the analysis style more than once
-    (for example "shorter" or "put gaps first"). Pass the complete new file
-    text; the approval card shows a before/after diff.
+    Use when the user asks for a lasting style change ("always list gaps
+    first", "from now on keep it short"), or agrees to keep a correction they
+    made twice. Not for one-off requests ("shorter this time"). Pass the
+    complete new file text; the approval card shows a before/after diff.
     """
     store = default_store()
     before = store.read_analysis_instructions()
@@ -595,7 +629,7 @@ def approval_tool_name(interruption) -> str:
 
 
 __all__ = [
-    "SAVE_FAILED", "WRITE_ACTIONS", "add_posting", "delete_experience", "propose_analysis_instructions",
+    "SAVE_FAILED", "WRITE_ACTIONS", "add_posting", "ask_user", "give_answer", "delete_experience", "propose_analysis_instructions",
     "read_job_preferences", "read_tracking_log", "search_with_history", "update_status", "analyze_fit", "check_claims", "approval_details", "approval_tool_name",
     "duplicate_candidates", "execute_edited", "save_failed",
     "find_duplicate_candidates", "find_pasted_text", "list_postings", "missing_arguments", "normalize_company",
