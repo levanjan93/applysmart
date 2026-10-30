@@ -415,6 +415,14 @@ class Store:
                     entry["parent_id"] = None
             self._write_json(self.experience_path, kept)
 
+    def delete_all_experience(self) -> list[dict]:
+        """Remove every experience entry and return the removed entries."""
+        with self._lock:
+            self.ensure_layout()
+            entries = self._read_experience_list()
+            self._write_json(self.experience_path, [])
+            return entries
+
     def save_analysis(self, job_id: str, analysis: dict) -> str:
         """Save a new analysis for a posting. Assigns the analysis ID from the time."""
         with self._lock:

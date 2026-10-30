@@ -231,6 +231,15 @@ def remove_experience(payload: dict) -> tuple[int, dict]:
     return 200, {"deleted": exp_id}
 
 
+def remove_all_experience(payload: dict) -> tuple[int, dict]:
+    # The view asks the user to confirm first; the flag guards against stray calls.
+    if payload.get("confirm") is not True:
+        return 400, {"error": "Deleting all experience needs confirmation."}
+    removed = default_store().delete_all_experience()
+    log_direct_edit("experience", "all", "delete_all", removed, None)
+    return 200, {"deleted": len(removed)}
+
+
 class JobSearchServer(ThreadingHTTPServer):
     daemon_threads = False
 
@@ -405,6 +414,7 @@ class JobSearchHandler(BaseHTTPRequestHandler):
             "/api/posting/status": change_status,
             "/api/experience/update": edit_experience,
             "/api/experience/delete": remove_experience,
+            "/api/experience/delete-all": remove_all_experience,
         }
         if self.path in direct:
             status, result = direct[self.path](payload)
