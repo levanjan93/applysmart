@@ -1,4 +1,4 @@
-# Job Search Assistant
+# ApplySmart
 
 A local job-search assistant for saving job postings, organizing experience, checking fit against evidence, and tracking applications. Personal records stay as JSON and Markdown files under `data/`.
 

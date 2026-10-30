@@ -563,7 +563,7 @@ class JobSearchHandler(BaseHTTPRequestHandler):
 def serve(runtime):
     """Run the approval-enabled local interface until interrupted."""
     with JobSearchServer(runtime) as server:
-        print(f"\nOpen {server.origin} to use the job-search assistant.\nStop with Ctrl+C.")
+        print(f"\nOpen {server.origin} to use ApplySmart.\nStop with Ctrl+C.")
         try:
             server.serve_forever()
         except KeyboardInterrupt:

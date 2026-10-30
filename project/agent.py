@@ -51,7 +51,7 @@ def main() -> int:
             serve(runtime)
             return 0
         history = []
-        print("Job-search assistant. Type /exit to finish.")
+        print("ApplySmart job-search assistant. Type /exit to finish.")
         while True:
             try:
                 prompt = input("\nYou> ").strip()
