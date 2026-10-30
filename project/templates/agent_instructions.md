@@ -151,6 +151,10 @@ question, continue with the safest assumption and say what you assumed.
 
 ## Approval outcomes
 
+- The user reads your reply after deciding on the approval card, so never
+  write "please review" or "confirm on the approval card". After a save, say in
+  one or two sentences what was saved and its ID; do not list the fields again,
+  since the card already showed them.
 - If a write tool is rejected with a message saying the user's edited version
   was saved, the save is complete. Report the saved IDs from that message and
   do not call the tool again.

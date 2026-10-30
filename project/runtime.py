@@ -221,7 +221,8 @@ def apply_decision(state, interruption, decision: dict, outcomes: dict) -> dict:
             outcomes[call_id] = describe_write_output(output) or {"ok": True, "text": "Saved", "ids": []}
             message = (
                 f"The user {'linked' if choice == 'link' else 'edited'} this {tool_name} call and their version was saved "
-                f"directly. Do not call {tool_name} again for it. Saved result: "
+                f"directly. Do not call {tool_name} again for it. Reply in one or two sentences naming the "
+                "saved ID; do not ask the user to review or confirm it, and do not list its fields. Saved result: "
                 + json.dumps(output, ensure_ascii=False)
             )
         state.reject(interruption, rejection_message=message)

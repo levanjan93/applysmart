@@ -720,8 +720,7 @@ function renderApproval(pending, force = false) {
   });
   approval.append(
     el("h2", {textContent: labels[toolName] || `Review ${toolName} before continuing`}),
-    missingNote,
-    ...proposalView(toolName, args, context).filter(Boolean),
+    ...[missingNote, ...proposalView(toolName, args, context)].filter(Boolean),
     el("div", {className: "approval-actions"}, approve, deleting ? null : edit, reject));
   if (toolName === "add_posting") {
     approval.classList.add("approval-fit");
@@ -778,14 +777,15 @@ function renderQuestion(args, force) {
     button.addEventListener("click", () => answer(option));
     return button;
   });
-  approval.append(
+  approval.append(...[
     el("h2", {textContent: "The assistant has a question"}),
     el("p", {className: "question-text", textContent: args.question || ""}),
     args.reason ? el("p", {className: "muted", textContent: `Why it's asking: ${args.reason}`}) : null,
     options.length ? el("div", {className: "question-options"}, ...options) : null,
     box,
     el("div", {className: "approval-actions"}, reply, skip,
-      el("span", {className: "muted small-note", textContent: "Nothing is saved from this answer."})));
+      el("span", {className: "muted small-note", textContent: "Nothing is saved from this answer."})),
+  ].filter(Boolean));
   if (!force) requestAnimationFrame(() => { approval.scrollIntoView({block: "center"}); box.focus({preventScroll: true}); });
 }
 
