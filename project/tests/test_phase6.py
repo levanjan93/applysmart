@@ -150,6 +150,16 @@ class Phase6Tests(unittest.TestCase):
         self.assertEqual(overview[self.gic["id"]]["last_status_change"]["to"], "interviewing")
         self.assertEqual(webapp.posting_detail(self.gic["id"])["raw_text"], "raw 2")
 
+    def test_delete_all_experience_needs_confirmation_and_is_logged(self):
+        self.store.add_experience({"source": "user-added", "category": "skill", "text": "Python"})
+        self.store.add_experience({"source": "user-added", "category": "skill", "text": "SQL"})
+        self.assertEqual(webapp.remove_all_experience({})[0], 400)
+        self.assertEqual(len(self.store.read_experience()), 2)
+        self.assertEqual(webapp.remove_all_experience({"confirm": True}), (200, {"deleted": 2}))
+        self.assertEqual(self.store.read_experience(), [])
+        logged = self.store.read_interactions()[-1]
+        self.assertEqual((logged["decision"], len(logged["before"])), ("delete_all", 2))
+
     def test_summary_script_counts_decisions(self):
         spec = importlib.util.spec_from_file_location("summarize_log", SCRIPT)
         module = importlib.util.module_from_spec(spec)

@@ -248,6 +248,31 @@ function experienceRow(entry, entries, {child = false} = {}) {
   return row;
 }
 
+// Two steps: the button opens a confirmation panel that names how much will go.
+function deleteAllControl(entries) {
+  const holder = el("div", {className: "delete-all"});
+  const start = el("button", {type: "button", className: "secondary small", textContent: "Delete all entries"});
+  const closed = () => holder.replaceChildren(start);
+  start.addEventListener("click", () => {
+    const confirm = el("button", {type: "button", className: "danger small", textContent: `Yes, delete all ${entries.length}`});
+    const cancel = el("button", {type: "button", className: "secondary small", textContent: "Cancel"});
+    const message = el("span", {className: "muted"});
+    confirm.addEventListener("click", async () => {
+      try {
+        await request("/api/experience/delete-all", {confirm: true});
+        loadExperience();
+      } catch (error) { message.textContent = error.message; }
+    });
+    cancel.addEventListener("click", closed);
+    holder.replaceChildren(el("div", {className: "note-warn"},
+      el("p", {textContent: `Delete all ${entries.length} experience entries, including resume entries and details? This cannot be undone from here.`}),
+      el("div", {className: "approval-actions"}, confirm, cancel, message)));
+    cancel.focus();
+  });
+  closed();
+  return holder;
+}
+
 function renderExperience(entries) {
   const visible = entries.filter(experienceMatches);
   const visibleIds = new Set(visible.map(entry => entry.id));
@@ -279,6 +304,7 @@ function renderExperience(entries) {
     el("p", {className: "muted", textContent:
       `${fromResume} from your resume, ${entries.length - fromResume} added by you, ${notOnResume} not on your resume. ` +
       "Edits and deletions here are saved directly and logged."}),
+    entries.length ? deleteAllControl(entries) : null,
     visible.length ? body : el("p", {className: "muted", textContent: entries.length ? "No entries match these filters." : "No experience yet. Upload a resume or tell the assistant about your experience."}));
 }
 

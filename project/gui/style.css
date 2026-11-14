@@ -115,6 +115,7 @@ button.small { padding: 6px 11px; font-size: .85rem; }
 #tab-postings, #tab-experience { background: white; border: 1px solid #f2d4e1; border-radius: 14px; padding: 16px 18px; }
 .view-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: end; gap: 12px; margin-bottom: 10px; }
 .view-head h2 { margin: 0; font-size: 1.15rem; }
+.delete-all { margin-bottom: 12px; }
 .filters { display: flex; flex-wrap: wrap; gap: 10px; align-items: end; }
 .filter { display: grid; gap: 3px; margin: 0; font-size: .8rem; font-weight: 600; color: #7a5b6c; }
 .filter select, .filter input { font: inherit; font-size: .9rem; font-weight: 400; border: 1px solid #e8c3d4; border-radius: 8px; padding: 6px 8px; }

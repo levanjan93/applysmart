@@ -491,10 +491,8 @@ function resumeDraftView(draft, filename) {
   if (!draft) return [el("p", {className: "note-warn", textContent: "The parsed resume draft is missing. Upload the resume again."})];
   const items = draft.items || [];
   const skills = draft.skills || [];
-  const total = items.reduce((count, item) => count + 1 + item.details.length, 0) + skills.length;
   const nodes = [el("p", {className: "muted", textContent:
-    `From ${filename || "your uploaded file"}: ${items.length} items and ${skills.length} skills, ${total} lines in all. ` +
-    "Each line is saved as its own fact so the fit analysis can cite it; bullet points stay nested under their item."})];
+    `From ${filename || "your uploaded file"}: ${items.length} items, ${skills.length} skills.`})];
   for (const category of ITEM_CATEGORIES) {
     const group = items.filter(item => item.category === category);
     if (!group.length) continue;
