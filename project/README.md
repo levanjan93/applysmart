@@ -2,18 +2,17 @@
 
 A local job-search assistant for saving job postings, organizing experience, checking fit against evidence, and tracking applications. Personal records stay as JSON and Markdown files under `data/`.
 
-The project design is described in [PLAN.md](PLAN.md). The three course ideas it is graded on (verifying AI output, agent memory with user approval, and human oversight at the right moment) are explained under [The three design ideas](#the-three-design-ideas).
+It was built around three human-AI interaction ideas (verifying AI output, agent memory with user approval, and human oversight at the right moment), explained under [The three design ideas](#the-three-design-ideas). The original design brief is in [docs/design-plan.md](../docs/design-plan.md) and the development log in [docs/development-log.md](../docs/development-log.md).
 
 ## Configuration
 
-Use Python 3.11 or newer. Create and use the virtual environment at `%LOCALAPPDATA%\venvs\cs619-project`; do not create one inside this project folder.
+Use Python 3.11 or newer. From the `project/` directory, create a virtual environment and install the dependencies:
 
-From the `project/` directory in PowerShell:
-
-```powershell
-py -3 -m venv "$env:LOCALAPPDATA\venvs\cs619-project"
-& "$env:LOCALAPPDATA\venvs\cs619-project\Scripts\python.exe" -m pip install -r requirements.txt
-Copy-Item .env.example .env
+```bash
+python -m venv .venv
+source .venv/bin/activate          # Windows PowerShell: .venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+cp .env.example .env               # Windows PowerShell: Copy-Item .env.example .env
 ```
 
 Edit `project/.env` and set both values:
@@ -34,37 +33,30 @@ OPENROUTER_CHECK_MODEL=openai/gpt-6-sol
 
 The app reads only these four settings from `.env`; it does not interpolate variables or print the key. Keep `.env` private and out of version control.
 
-The SDK dependencies are in `requirements.txt`. The Agents SDK is pinned to `openai-agents==0.22.2`.
+The Agents SDK is pinned to `openai-agents==0.22.2`.
+
+> If the project folder is synced by OneDrive or iCloud, keep the virtual environment outside it (for example under `%LOCALAPPDATA%\venvs\`); sync clients lock files and slow down installs.
 
 ## Start the app
 
-Open PowerShell. The terminal often starts in the parent `lab` folder. `agent.py` is in `project`, so enter that folder first, then activate the environment for this window:
+With the environment activated, from the `project/` directory:
 
-```powershell
-cd project
-& "$env:LOCALAPPDATA\venvs\cs619-project\Scripts\Activate.ps1"
+```bash
 python agent.py --gui
 ```
 
-The prompt should begin with `(cs619-project)`. Open the local URL printed in the terminal. Stop the server with Ctrl+C.
+Open the local URL printed in the terminal. Stop the server with Ctrl+C.
 
-Activation applies only to that terminal. In a new window, run the `Activate.ps1` line again. If PowerShell says it cannot open `lab\agent.py`, the shell is still in the parent folder. Run `cd project` and start the command again.
-
-The same activated window can start a terminal conversation instead of the browser:
-
-```powershell
-python agent.py
-```
-
-Stop that mode with `/exit`.
+To chat in the terminal instead of the browser, run `python agent.py`, and stop with `/exit`.
 
 ## Using the app
 
-The page has three tabs.
+The page has four tabs.
 
 - **Chat:** talk to the assistant, paste job postings, upload a resume with the **Resume upload** control (PDF, DOCX, TXT, or Markdown), and review approval cards and fit analyses. A dot on the tab means an approval is waiting.
 - **Postings:** a table of saved postings (ID, title, company, date added, status, date applied, number of analyses) with status and text filters. Click a row to see its fields, requirements, tracking history, past analyses, and your pasted text, or to change its status.
 - **Experience:** every saved fact, grouped by resume section, with bullet points nested under their role, degree, or project. Filter by source and by whether a fact is on your resume, then edit or delete entries directly.
+- **My requirements:** your minimum monthly salary, accepted job types and work arrangements, and free-text deal-breakers ("no shift work"). Every saved posting is checked against them: code checks salary, job type, and work arrangement, and a separate model rates deal-breakers with quotes that code verifies in the posting.
 
 Things to ask in chat:
 
@@ -74,16 +66,19 @@ Things to ask in chat:
 - "Have I applied to Harbour Bank before?" Company-name variants match, and near-misses are mentioned.
 - "I also led my hackathon team last year." The assistant proposes a new experience entry for approval.
 - "Delete EXP-0012, I added it by mistake."
+- "Does JOB-0001 meet my requirements?"
+
+When a request is ambiguous (which job you mean, or whether a style request should last), the assistant asks a short clarifying question with clickable options before it acts, and it suggests next steps after each answer.
 
 The agent has no tool that accepts a filesystem path. A selected resume stays in server memory until you approve or reject its import. PDF import reads embedded text, so scanned image-only PDFs need OCR or conversion first.
 
 ## The three design ideas
 
-| Idea | Course week | What you see |
-|---|---|---|
-| **A. Verifying AI output** | Week 2 | Every field of a posting to save links to its source in your pasted text, with unsupported items flagged. Every fit claim cites REQ and EXP IDs that code has checked; an independent checker rates each claim; the evidence panel puts flagged claims first and shows each requirement beside its evidence. |
-| **B. Agent memory with user approval** | Week 4 | New experience, resume imports, edits, deletions, and changes to your analysis style are proposed on cards and saved only after you approve; your wording is never upgraded. |
-| **C. Human oversight at the right moment** | Week 4 | Cards appear only for consequential saves, show the exact content, and support Approve, Edit, and Reject; possible duplicates are labelled for you to decide; clear status updates need no card. |
+| Idea | What you see |
+|---|---|
+| **A. Verifying AI output** | Every field of a posting to save links to its source in your pasted text, with unsupported items flagged. Every fit claim cites REQ and EXP IDs that code has checked; an independent checker rates each claim; the evidence panel puts flagged claims first and shows each requirement beside its evidence. |
+| **B. Agent memory with user approval** | New experience, resume imports, edits, deletions, and changes to your analysis style are proposed on cards and saved only after you approve; your wording is never upgraded. |
+| **C. Human oversight at the right moment** | Cards appear only for consequential saves, show the exact content, and support Approve, Edit, and Reject; possible duplicates are labelled for you to decide; clear status updates need no card. |
 
 ### A. Verifying AI output
 
@@ -133,11 +128,13 @@ The `samples/` folder holds fake data:
 6. Open the Postings and Experience tabs.
 7. Run `python scripts/summarize_log.py`.
 
+To reset a folder to a ready-made demo state (sample resume, one posting, example job requirements) without any model calls, create an empty file named `DEMO_COPY` in that folder and run `python scripts/seed_demo.py`. It deletes everything under `data/`, which is why it refuses to run without the marker.
+
 ## Evaluation log
 
 Every human decision is appended to `data/interaction_log.jsonl`: approval decisions (approve, edit, link, reject) with the time taken, agree/disagree on fit claims with the checker's rating at the time, and direct edits in the Postings and Experience views. Summarize it with:
 
-```powershell
+```bash
 python scripts/summarize_log.py
 python scripts/summarize_log.py --json
 ```
@@ -148,7 +145,7 @@ The summary shows, per card type, how often you changed or rejected the assistan
 
 Run these from the `project/` directory after the environment is activated:
 
-```powershell
+```bash
 python -m unittest discover -s tests -v
 python -c "import agent, webapp"
 ```
@@ -158,12 +155,12 @@ python -c "import agent, webapp"
 - `agent.py` builds the assistant and manages terminal startup.
 - `runtime.py` loads `.env`, builds the OpenRouter models, runs the SDK, applies approval decisions, and logs them.
 - `tools.py` contains the Agents SDK tools.
-- `llm.py` runs structured model calls made by code. `resume.py` parses resumes into nested drafts. `analysis.py` runs fit analysis, citation checks, and claim checking. `posting_evidence.py` checks posting source quotes and splits pasted text into display lines. `duplicates.py` labels duplicate candidates.
+- `llm.py` runs structured model calls made by code. `resume.py` parses resumes into nested drafts. `analysis.py` runs fit analysis, citation checks, and claim checking. `posting_evidence.py` checks posting source quotes and splits pasted text into display lines. `duplicates.py` labels duplicate candidates. `preferences.py` checks saved postings against your job requirements.
 - `storage.py` manages local records, IDs, the tracking log, and the interaction log.
 - `webapp.py` and `gui/` provide the browser interface: chat and approval cards (`chat.js`), the evidence panel (`analysis.js`), and the Postings and Experience views (`views.js`).
 - `uploads.py` holds browser-selected resume files in memory and extracts their text.
 - `templates/` holds the default agent and analysis instructions (copied into `data/config/` on first use) and the prompts for the analyst, checker, resume parser, and duplicate judge.
-- `scripts/summarize_log.py` summarizes the interaction log.
+- `scripts/summarize_log.py` summarizes the interaction log; `scripts/seed_demo.py` resets a demo copy.
 - `samples/` holds fake postings and a fake resume for demos.
-- `tests/` contains the unit and browser-workflow tests; `progress_log.md` records phase status.
+- `tests/` contains the unit and browser-workflow tests.
 - `data/` contains personal records and is ignored by Git.

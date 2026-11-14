@@ -1,20 +1,6 @@
-# Progress log
+# Development log
 
-Keep this handoff current after each coding session. Project scope and acceptance checks are in [PLAN.md](PLAN.md). Setup is in [README.md](README.md).
-
-## Current status
-
-**Checkpoint 3 (Phases 6–8) is built. All phases are implemented and awaiting the user's final review.** Checkpoints 1 and 2 were accepted on 2026-10-07. Submission is due the week of 2026-10-12.
-
-Last updated: 2026-10-07.
-
-## Next review
-
-Restart `python agent.py --gui` (required: the runtime threading fix below), then follow "Demo with sample data" in README.md using the files in `samples/`. Also check:
-
-1. Postings tab: open a posting, change its status, and see the tracking history update.
-2. Experience tab: filter by source and on-resume, edit an entry, and delete one (two clicks).
-3. `python scripts/summarize_log.py` prints your decision counts.
+Notes kept during development, newest first within each section. The original design brief is in [design-plan.md](design-plan.md); setup and usage are in the [project README](../project/README.md).
 
 ## Phase checklist
 
@@ -26,9 +12,9 @@ Restart `python agent.py --gui` (required: the runtime threading fix below), the
 | 3 Resume and experience | Done | Structured nested resume parsing, direct edits, approval cards, delete from chat. |
 | 4 Analysis and claim check | Done | `analysis.py`: structured analyst call, code ID validation, code-decided resume suggestions, separate checker model. |
 | 5 Verification GUI | Done | Evidence panel: flagged-first ordering, rating badges, highlighted raw line, side-by-side evidence, agree/disagree logging. |
-| 6 Tracking, search, duplicates | Built, awaiting review | `update_status`, `read_tracking_log`, name-variant search with near misses and applied dates, model duplicate judgment, link option. |
-| 7 Interaction log summary | Built, awaiting review | `scripts/summarize_log.py`: per-card decision rates, claim reviews by checker rating, direct edits. |
-| 8 Polish | Built, awaiting review | Tabs with Postings and Experience views, instructions diff card, fake samples, README design-ideas section. |
+| 6 Tracking, search, duplicates | Done | `update_status`, `read_tracking_log`, name-variant search with near misses and applied dates, model duplicate judgment, link option. |
+| 7 Interaction log summary | Done | `scripts/summarize_log.py`: per-card decision rates, claim reviews by checker rating, direct edits. |
+| 8 Polish | Done | Tabs with Postings and Experience views, instructions diff card, fake samples, README design-ideas section. |
 
 ## Runtime migration
 
